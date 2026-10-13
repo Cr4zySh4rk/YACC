@@ -119,24 +119,32 @@ table.sum td { padding: 7px 4px; border-bottom: 1px solid var(--line); }
 table.sum td:last-child { text-align: right; font-family: ui-monospace, monospace; }
 
 /* ---------- guitar svg parts ---------- */
-.g-body { fill: url(#gBody); stroke: #2c3550; stroke-width: 2; }
-.g-neck { fill: #151b2a; stroke: #2c3550; stroke-width: 2; }
-.g-line { stroke: #232b40; stroke-width: 1.5; }
-.g-label { fill: #5f6a8a; font: 600 11px Inter, system-ui, sans-serif; letter-spacing: .08em; text-anchor: middle; text-transform: uppercase; }
-.part { transition: opacity .06s, filter .06s; opacity: .28; }
-.part.on { opacity: 1; filter: drop-shadow(0 0 10px var(--c, #7c8cff)); }
-.part.mapped:not(.on) { opacity: .5; }
-.fret { fill: var(--c); }
-.fret-ring { fill: none; stroke: var(--c); stroke-width: 3; opacity: .6; }
-.plate { fill: #1f2639; stroke: #35405f; stroke-width: 2; }
-.glyph { fill: none; stroke: #cfd6ee; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
-.glyph.fill { fill: #cfd6ee; stroke: none; }
-.focus-ring { fill: none; stroke: var(--accent2); stroke-width: 3; stroke-dasharray: 6 5; opacity: 0; transform-box: fill-box; transform-origin: center; }
-.focus .focus-ring { opacity: 1; animation: spin 6s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.whammy-track { fill: #0b0f19; stroke: #2c3550; stroke-width: 2; }
-.whammy-fill { fill: url(#gWhammy); }
-#tiltIcon { transition: transform .12s; transform-box: fill-box; transform-origin: 50% 100%; }
+.stage { background: radial-gradient(120% 90% at 50% 0%, rgba(124,140,255,.10), transparent 60%); }
+.g-label { fill: #6b7694; font: 600 10px Inter, system-ui, sans-serif; letter-spacing: .14em; text-anchor: middle; text-transform: uppercase; }
+.g-label.body { fill: #f6e7c6; opacity: .72; font-size: 9px; }
+.g-logo { fill: #e9d9a8; font: italic 700 20px Georgia, 'Times New Roman', serif; letter-spacing: .06em; }
+.part { transition: opacity .08s, filter .08s; opacity: .62; }
+.part.mapped { opacity: .88; }
+.part.on { opacity: 1; filter: drop-shadow(0 0 9px var(--c, #7c8cff)); }
+.fretcap { transition: filter .08s; filter: brightness(.62) saturate(.85); }
+.part.mapped .fretcap { filter: brightness(.85); }
+.part.on .fretcap { filter: brightness(1.18) saturate(1.1); }
+.litcap { fill: var(--c); opacity: 0; transition: opacity .08s; }
+.part.on .litcap { opacity: .9; }
+.glyph { fill: none; stroke: #20263a; stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; transition: stroke .08s, fill .08s; }
+.glyph.fill { fill: #20263a; stroke: none; }
+.glyph.light { stroke: #e9edf7; }
+.glyph.light.fill { fill: #e9edf7; stroke: none; }
+.part.on .glyph.light { stroke: #10131c; }
+.part.on .glyph.light.fill { fill: #10131c; stroke: none; }
+.focus-ring { fill: none; stroke: var(--accent2); stroke-width: 2.5; stroke-dasharray: 6 5; opacity: 0; pointer-events: none; }
+.focus .focus-ring { opacity: 1; animation: dash .7s linear infinite; }
+@keyframes dash { to { stroke-dashoffset: -22; } }
+.wh-track, .wh-fill { fill: none; stroke-width: 5; stroke-linecap: round; }
+.wh-track { stroke: rgba(0,0,0,.45); }
+.wh-fill { stroke: var(--accent2); filter: drop-shadow(0 0 4px var(--accent2)); }
+.needle { transition: transform .15s ease-out; }
+.part.on .needle line { filter: drop-shadow(0 0 3px #38e1c6); }
 
 /* ---------- tune ---------- */
 .slider-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
