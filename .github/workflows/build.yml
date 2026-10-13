@@ -1,0 +1,97 @@
+name: Build firmware & deploy site
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  PICO_SDK_VERSION: 2.1.1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node tests/detect.test.mjs
+
+  firmware:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [pico_clone, pico, pico_w, pico2, pico2_w]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build gcc-arm-none-eabi \
+            libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib
+
+      - name: Pico SDK
+        run: |
+          git clone --depth 1 -b ${PICO_SDK_VERSION} https://github.com/raspberrypi/pico-sdk "$RUNNER_TEMP/pico-sdk"
+          git -C "$RUNNER_TEMP/pico-sdk" submodule update --init --depth 1 lib/tinyusb lib/btstack lib/cyw43-driver lib/lwip
+
+      - name: Build
+        run: |
+          cmake -S firmware -B build -G Ninja -DPICO_BOARD=${{ matrix.board }} -DPICO_SDK_PATH="$RUNNER_TEMP/pico-sdk"
+          cmake --build build
+
+      - name: Collect
+        run: |
+          mkdir -p out
+          cp build/yacc.uf2 out/yacc-${{ matrix.board }}.uf2
+          cp build/nuke/yacc_nuke.uf2 out/nuke-${{ matrix.board }}.uf2
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.board }}
+          path: out/*.uf2
+
+  deploy:
+    needs: [test, firmware]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: firmware-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Assemble site
+        run: |
+          mkdir -p site
+          cp -r web/* site/
+          mkdir -p site/downloads
+          cp artifacts/yacc-*.uf2 site/downloads/
+          cp artifacts/nuke-pico.uf2  site/downloads/yacc-nuke-rp2040.uf2
+          cp artifacts/nuke-pico2.uf2 site/downloads/yacc-nuke-rp2350.uf2
+          touch site/.nojekyll
+          ls -la site/downloads
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
