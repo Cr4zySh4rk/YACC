@@ -1,4 +1,4 @@
-// YACC persistent configuration (stored in the last flash sector)
+// YAGCC persistent configuration (stored in the last flash sector)
 #ifndef YACC_CONFIG_H_
 #define YACC_CONFIG_H_
 
@@ -49,7 +49,7 @@ enum {
     DEB_BOTH    = 2,   // classic: any change must be stable for the debounce time
 };
 
-#define YACC_CFG_MAGIC   0x43434159u  // "YACC" little endian
+#define YACC_CFG_MAGIC   0x43434159u  // "YAGCC" little endian
 #define YACC_CFG_VERSION 3
 
 #define NUM_LEDS 5

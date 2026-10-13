@@ -55,7 +55,7 @@ jobs:
       - name: Collect
         run: |
           mkdir -p out
-          cp build/yacc.uf2 out/yacc-${{ matrix.board }}.uf2
+          cp build/yacc.uf2 out/yagcc-${{ matrix.board }}.uf2
           cp build/nuke/yacc_nuke.uf2 out/nuke-${{ matrix.board }}.uf2
 
       - uses: actions/upload-artifact@v4
@@ -83,9 +83,9 @@ jobs:
           mkdir -p site
           cp -r web/* site/
           mkdir -p site/downloads
-          cp artifacts/yacc-*.uf2 site/downloads/
-          cp artifacts/nuke-pico.uf2  site/downloads/yacc-nuke-rp2040.uf2
-          cp artifacts/nuke-pico2.uf2 site/downloads/yacc-nuke-rp2350.uf2
+          cp artifacts/yagcc-*.uf2 site/downloads/
+          cp artifacts/nuke-pico.uf2  site/downloads/yagcc-nuke-rp2040.uf2
+          cp artifacts/nuke-pico2.uf2 site/downloads/yagcc-nuke-rp2350.uf2
           touch site/.nojekyll
           ls -la site/downloads
 

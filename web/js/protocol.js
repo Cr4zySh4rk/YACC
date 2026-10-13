@@ -1,4 +1,4 @@
-// YACC wire protocol - mirrors firmware/src/config.h and usb_common.h
+// YAGCC wire protocol (the on-wire magic stays 'YACC' for compatibility) - mirrors firmware/src/config.h and usb_common.h
 export const VID = 0x1209;
 export const PIDS = [0x0001, 0x0002];
 
@@ -136,7 +136,7 @@ export function serializeConfig(c) {
 
 export function parseInfo(dv) {
   const magic = String.fromCharCode(dv.getUint8(0), dv.getUint8(1), dv.getUint8(2), dv.getUint8(3));
-  if (magic !== 'YACC') throw new Error('Not a YACC device');
+  if (magic !== 'YACC') throw new Error('Not a YAGCC device');
   return {
     major: dv.getUint8(4), minor: dv.getUint8(5), board: dv.getUint8(6),
     btSupported: !!(dv.getUint8(7) & 1), rgbSupported: !!(dv.getUint8(7) & 2),

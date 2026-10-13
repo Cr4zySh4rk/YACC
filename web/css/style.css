@@ -86,7 +86,7 @@ select { min-width: 220px; }
 .setup { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr); gap: 20px; align-items: start; }
 @media (max-width: 920px) { .setup { grid-template-columns: 1fr; } }
 .stage { padding: 14px 14px 8px; }
-svg.guitar { display: block; margin: 0 auto; height: min(640px, 74vh); width: auto; max-width: 100%; aspect-ratio: 480 / 1000; }
+svg.guitar { width: 100%; height: auto; display: block; }
 .progress { display: flex; gap: 5px; margin-bottom: 18px; flex-wrap: wrap; }
 .progress span { height: 6px; flex: 1 0 14px; border-radius: 3px; background: var(--line); }
 .progress span.done { background: linear-gradient(90deg, var(--accent), var(--accent2)); }

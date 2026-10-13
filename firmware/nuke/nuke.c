@@ -1,4 +1,4 @@
-// YACC flash nuke: erases the entire flash chip (firmware + saved settings)
+// YAGCC flash nuke: erases the entire flash chip (firmware + saved settings)
 // and drops the board back into BOOTSEL (USB mass storage) mode, ready for a
 // fresh firmware. Runs from RAM, so it is safe to erase the flash it ran from.
 #include "pico/stdlib.h"

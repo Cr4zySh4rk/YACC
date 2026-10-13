@@ -1,20 +1,20 @@
-# YACC — Yet Another Controller Configurator
+# YAGCC — Yet Another Guitar Controller Configurator
 
 A browser-based configurator **and** matching firmware for DIY guitar controllers on the Raspberry Pi Pico family.
 Flash the board, plug it in, and the web app walks you through mapping every button — no matter which pins you wired them to.
 
-**Web app:** https://cr4zysh4rk.github.io/YACC/ (GitHub Pages) · also deployable on Vercel (see below)
+**Web app:** https://cr4zysh4rk.github.io/YAGCC/ (GitHub Pages) · also deployable on Vercel (see below)
 
 > Requires a Chromium-based browser (Chrome, Edge, Brave, …) for WebUSB. Downloading firmware works in any browser.
 
 ## How it works
 
-1. **Flash** – download the *flash nuke* (wipes the old firmware and settings) and the YACC firmware for your board, or let the page write them straight to the `RPI-RP2` drive.
+1. **Flash** – download the *flash nuke* (wipes the old firmware and settings) and the YAGCC firmware for your board, or let the page write them straight to the `RPI-RP2` drive.
 2. **Plug in** – the page detects the controller and jumps to guided setup.
-3. **Guided setup** – for every control YACC asks you to press it twice within a second, watches which GPIO changed, and assigns it:
+3. **Guided setup** – for every control YAGCC asks you to press it twice within a second, watches which GPIO changed, and assigns it:
    green → red → yellow → blue → orange → strum up → strum down → star power → plus.
-4. **Whammy** – move the bar through two full sweeps; YACC finds the analog pin, calibrates min/max, detects direction and shows a live meter.
-5. **RGB** – say whether you wired 5 WS2812 LEDs, give the data pin, and teach YACC which LED sits under which fret by pressing the frets.
+4. **Whammy** – move the bar through two full sweeps; YAGCC finds the analog pin, calibrates min/max, detects direction and shows a live meter.
+5. **RGB** – say whether you wired 5 WS2812 LEDs, give the data pin, and teach YAGCC which LED sits under which fret by pressing the frets.
 6. **Add-ons** – Bluetooth toggle (Pico W / Pico 2 W only) and an optional tilt switch (a plain digital switch such as a mercury ball switch; tilt up twice within 5 s to register it as a star-power shortcut).
 7. **Tune** – debounce time/mode, combined-strum debounce, whammy smoothing and dead-zone, all live.
 8. **Lights** – optional WS2812 RGB LEDs under the frets (colours, reactive effects, brightness, LED order).
@@ -49,11 +49,11 @@ The mode picked by holding a fret is remembered (like GP2040-CE). Every fret →
 
 ## Debounce
 
-YACC uses a *lockout + glitch filter* engine, designed after reading how Santroller and GP2040-CE do it:
+YAGCC uses a *lockout + glitch filter* engine, designed after reading how Santroller and GP2040-CE do it:
 
 * **GP2040-CE** debounces with a per-pin lockout: the first edge is taken immediately, then changes are ignored for the delay (default 5 ms) before the input re-syncs to the raw level.
 * **Santroller** lets presses through instantly and holds *releases* for the debounce time, with an optional press-delay mode and a combined strum debounce.
-* **YACC** takes the best of both: a 0.2 ms press / 1 ms release glitch filter (so EMI spikes and contact flutter never register), then a per-input lockout (default 5 ms) after every accepted edge, then re-sync. Strum up/down additionally share a lockout so a bouncing strum switch can't fire both directions. A mercury tilt switch gets at least a 20 ms lockout.
+* **YAGCC** takes the best of both: a 0.2 ms press / 1 ms release glitch filter (so EMI spikes and contact flutter never register), then a per-input lockout (default 5 ms) after every accepted edge, then re-sync. Strum up/down additionally share a lockout so a bouncing strum switch can't fire both directions. A mercury tilt switch gets at least a 20 ms lockout.
 
 The only knob is the lockout time (presets from Off to 20 ms, or a slider up to 25 ms). Inputs are sampled at up to 10 kHz.
 

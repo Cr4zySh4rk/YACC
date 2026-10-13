@@ -180,7 +180,7 @@ uint8_t const *tud_descriptor_bos_cb(void) {
 }
 
 // Landing page: Chrome offers to open this when the controller is plugged in. Scheme 1 = https://
-#define LANDING_URL "cr4zysh4rk.github.io/YACC/"
+#define LANDING_URL "cr4zysh4rk.github.io/YAGCC/"
 const uint8_t *yacc_webusb_url_desc(uint16_t *len) {
     static uint8_t d[3 + sizeof(LANDING_URL)];
     size_t n = sizeof(LANDING_URL) - 1;
@@ -239,14 +239,14 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
         chr_count = 1;
     } else {
         switch (index) {
-            case STR_MANUF:   s = (g_usb_mode == MODE_PS3_GH) ? "RedOctane" : "YACC"; break;
+            case STR_MANUF:   s = (g_usb_mode == MODE_PS3_GH) ? "RedOctane" : "YAGCC"; break;
             case STR_PRODUCT:
                 s = g_usb_mode == MODE_PS3_GH ? "Guitar Hero3 for PlayStation (R) 3"
-                  : g_usb_mode == MODE_HID    ? "YACC Guitar (HID)"
-                                              : "YACC Guitar Controller";
+                  : g_usb_mode == MODE_HID    ? "YAGCC Guitar (HID)"
+                                              : "YAGCC Guitar Controller";
                 break;
             case STR_SERIAL:  pico_get_unique_board_id_string(serial, sizeof(serial)); s = serial; break;
-            case STR_CONFIG:  s = "YACC Configuration"; break;
+            case STR_CONFIG:  s = "YAGCC Configuration"; break;
             default: return NULL;
         }
         chr_count = (uint8_t)strlen(s);

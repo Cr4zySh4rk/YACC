@@ -66,7 +66,7 @@ static bool drv_xfer(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, uint
 
 static const usbd_class_driver_t yacc_driver = {
 #if CFG_TUSB_DEBUG >= CFG_TUD_LOG_LEVEL
-    .name = "YACC",
+    .name = "YAGCC",
 #endif
     .init = drv_init,
     .deinit = drv_deinit,
@@ -127,7 +127,7 @@ bool xinput_vendor_request(uint8_t rhport, uint8_t stage, tusb_control_request_t
     return tud_control_xfer(rhport, req, buf, len);
 }
 
-// All vendor-type control requests (XInput + WebUSB/MS OS + YACC config protocol)
+// All vendor-type control requests (XInput + WebUSB/MS OS + YAGCC config protocol)
 bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request) {
     if (request->bRequest == VREQ_XINPUT && g_usb_mode == MODE_XINPUT &&
         request->bmRequestType_bit.direction == TUSB_DIR_IN) {

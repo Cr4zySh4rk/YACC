@@ -169,7 +169,7 @@ const STEPS = [
   { kind: 'button', func: 8, title: 'Plus / Start', prompt: 'Press the plus button twice within one second.', focus: ['plus'] },
   { kind: 'whammy', title: 'Whammy bar', prompt: 'Move the whammy bar through its full range and back — twice.', focus: ['whammy'] },
   { kind: 'rgb', title: 'RGB lighting', prompt: 'Did you wire WS2812 LEDs under the frets?', focus: [] },
-  { kind: 'ledmap', title: 'LED order', prompt: 'Teach YACC which LED sits under which fret.', focus: [] },
+  { kind: 'ledmap', title: 'LED order', prompt: 'Teach YAGCC which LED sits under which fret.', focus: [] },
   { kind: 'bluetooth', title: 'Bluetooth', prompt: 'Go wireless?', focus: [] },
   { kind: 'tilt', title: 'Tilt switch', prompt: 'Use a tilt switch as a star power shortcut?', focus: ['tilt'] },
   { kind: 'review', title: 'All done', prompt: 'Check everything, then save it to the controller.', focus: [] },
@@ -583,18 +583,18 @@ function initFlash() {
     const b = BOARD_LIST.find((x) => x.id === sel.value);
     store.set('yacc.board', b.id);
     $('#boardHelp').textContent = b.help;
-    const fw = `downloads/yacc-${b.id}.uf2`, nk = `downloads/yacc-nuke-${b.arch}.uf2`;
-    $('#dlFw').href = fw; $('#dlFw').setAttribute('download', `yacc-${b.id}.uf2`);
-    $('#dlNuke').href = nk; $('#dlNuke').setAttribute('download', `yacc-nuke-${b.arch}.uf2`);
-    $('#directFw').onclick = () => directFlash(fw, `yacc-${b.id}.uf2`);
-    $('#directNuke').onclick = () => directFlash(nk, `yacc-nuke-${b.arch}.uf2`);
+    const fw = `downloads/yagcc-${b.id}.uf2`, nk = `downloads/yagcc-nuke-${b.arch}.uf2`;
+    $('#dlFw').href = fw; $('#dlFw').setAttribute('download', `yagcc-${b.id}.uf2`);
+    $('#dlNuke').href = nk; $('#dlNuke').setAttribute('download', `yagcc-nuke-${b.arch}.uf2`);
+    $('#directFw').onclick = () => directFlash(fw, `yagcc-${b.id}.uf2`);
+    $('#directNuke').onclick = () => directFlash(nk, `yagcc-nuke-${b.arch}.uf2`);
   };
   sel.onchange = apply; apply();
   if (!window.showDirectoryPicker) { $('#directFw').disabled = true; $('#directNuke').disabled = true; $('#directFw').title = 'Needs Chrome or Edge'; }
   if (!webusbSupported()) {
     const w = $('#browserWarn');
     w.style.display = '';
-    w.innerHTML = '<b>WebUSB is not available in this browser.</b> Open YACC in Chrome, Edge or another Chromium browser to configure the controller. Downloading firmware works everywhere.';
+    w.innerHTML = '<b>WebUSB is not available in this browser.</b> Open YAGCC in Chrome, Edge or another Chromium browser to configure the controller. Downloading firmware works everywhere.';
   }
 }
 

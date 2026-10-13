@@ -1,5 +1,5 @@
-// YACC firmware: guitar controller with three USB personalities (XInput, PS3 GH, HID)
-// and a WebUSB configuration channel used by the YACC web app.
+// YAGCC firmware: guitar controller with three USB personalities (XInput, PS3 GH, HID)
+// and a WebUSB configuration channel used by the YAGCC web app.
 #include <string.h>
 #include "pico/stdlib.h"
 #include "pico/bootrom.h"
@@ -37,7 +37,7 @@ static uint16_t build_status(void) {
 
 static uint16_t build_info(void) {
     uint8_t *p = tx_buf;
-    memcpy(p, "YACC", 4); p += 4;
+    memcpy(p, "YACC", 4); p += 4;   // wire-protocol magic (unchanged by the YAGCC rename)
     *p++ = YACC_VERSION_MAJOR;
     *p++ = YACC_VERSION_MINOR;
     *p++ = YACC_BOARD_ID;
