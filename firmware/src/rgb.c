@@ -8,6 +8,7 @@
 #include "config.h"
 #include "input.h"
 #include "ws2812.pio.h"
+#include <math.h>
 
 #define FRAME_US    8000u
 #define BOOT_FLASH_US 1000000u
@@ -27,7 +28,13 @@ static uint32_t test_until;
 static uint8_t fade[NUM_FRETS];
 static bool was_pressed[NUM_FRETS];
 
+// WS2812s are linear: a screen colour like #EF4444 (a clear red on a monitor) comes out pink and
+// #FB923C (orange) comes out a washed-out peach, because the "small" channels are still far too bright.
+// A gamma 2.6 curve maps the picked colour to what the eye expects from the LED.
+static uint8_t gamma8[256];
+
 void rgb_init(void) {
+    for (int i = 0; i < 256; i++) gamma8[i] = (uint8_t)(powf(i / 255.0f, 2.6f) * 255.0f + 0.5f);
     rgb_offset = pio_add_program(rgb_pio, &ws2812_program);
     program_loaded = true;
     last_frame = time_us_32();
@@ -77,9 +84,9 @@ static void hsv(uint8_t h, uint8_t *r, uint8_t *g, uint8_t *b) {
 
 static uint32_t pack(uint8_t r, uint8_t g, uint8_t b, uint8_t level, uint8_t bright) {
     uint32_t k = (uint32_t)level * bright;                  // 0 .. 255*255
-    uint32_t rr = (uint32_t)r * k / (255u * 255u);
-    uint32_t gg = (uint32_t)g * k / (255u * 255u);
-    uint32_t bb = (uint32_t)b * k / (255u * 255u);
+    uint32_t rr = (uint32_t)gamma8[r] * k / (255u * 255u);
+    uint32_t gg = (uint32_t)gamma8[g] * k / (255u * 255u);
+    uint32_t bb = (uint32_t)gamma8[b] * k / (255u * 255u);
     return ((gg << 16) | (rr << 8) | bb) << 8;              // GRB, MSB aligned for the PIO
 }
 
