@@ -83,7 +83,8 @@ export class WhammyCalibrator {
     const ranges = this.ranges;
     for (let c = 0; c < 3; c++) {
       const lo = this.min[c], hi = this.max[c], r = ranges[c];
-      if (r < this.minRange) continue;
+      // a channel the user picked by hand is trusted with a much smaller swing
+      if (r < (this.locked && c === this.ch ? 12 : this.minRange)) continue;
       if (this.zones[c] === null && this.restSamples[c].length) {
         // the starting zone is wherever the bar rested before it started moving
         const rest = this.restSamples[c].reduce((x, y) => x + y, 0) / this.restSamples[c].length;

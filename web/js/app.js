@@ -243,15 +243,37 @@ function renderStep() {
       <div class="muted" style="font-size:13px;margin-bottom:6px" id="wLabel">${have ? 'Live input' : 'Sweeps detected: 0 / 2'}</div>
       <div class="bar"><i id="wBar" style="width:0"></i></div>
       <div class="adcs"><div class="muted" style="font-size:12px;margin:14px 0 6px">Raw analog inputs — the bar you move should swing one of these. Wrong one picked? Press <b>Use</b> on the right pin.</div>
-        ${[0, 1, 2].map((c) => `<div class="adc-row" data-ch="${c}"><span class="chip">GP${26 + c}</span><div class="bar"><i></i></div><span class="val">0</span><button class="btn small" data-use="${c}">Use</button></div>`).join('')}</div>
+        ${[0, 1, 2].map((c) => `<div class="adc-row" data-ch="${c}"><span class="chip">GP${26 + c}</span><div class="bar"><i></i></div><span class="val">0</span><button class="btn small" data-use="${c}">Use</button></div>`).join('')}
+        <div class="row" id="wManual" style="margin-top:10px;display:none;flex-wrap:wrap">
+          <span class="muted" style="font-size:12px;flex-basis:100%">Manual calibration: leave the bar at rest and press <b>Capture rest</b>, then hold it fully down and press <b>Capture full</b>.</span>
+          <button class="btn small" id="wCapRest">Capture rest</button><button class="btn small" id="wCapFull">Capture full</button><span class="muted" id="wCapInfo" style="font-size:12px"></span></div></div>
       ${nav(`<button class="btn small" id="wRedo">Recalibrate</button><button class="btn small ${have ? 'primary' : ''}" id="bSkip">${have ? 'Continue →' : 'Skip'}</button>`)}`;
     wireNav();
     stepCtx.done = have;
     document.querySelectorAll('[data-use]').forEach((b) => b.addEventListener('click', () => {
       stepCtx.cal.select(+b.dataset.use);
       stepCtx.done = false;
+      stepCtx.manual = { ch: +b.dataset.use };
+      $('#wManual').style.display = '';
+      $('#wCapInfo').textContent = '';
       setResult('', `<span class="pulse"></span><span>Using <span class="chip">GP${26 + +b.dataset.use}</span> — move the bar through two full sweeps.</span>`);
     }));
+    const capture = (which) => {
+      const m = stepCtx.manual, s = state.status;
+      if (!m || !s) return;
+      m[which] = s.adc[m.ch];
+      $('#wCapInfo').textContent = `rest ${m.rest ?? '–'} · full ${m.full ?? '–'}`;
+      if (m.rest != null && m.full != null) {
+        if (Math.abs(m.full - m.rest) < 8) { setResult('bad', 'The reading barely changed between rest and full — check the whammy wiring (see the hint below).'); return; }
+        Object.assign(state.cfg, { whammyCh: m.ch, whammyMin: Math.min(m.rest, m.full), whammyMax: Math.max(m.rest, m.full), whammyInvert: m.rest > m.full });
+        pushCfg();
+        stepCtx.done = true;
+        setResult('ok', `✓ Calibrated on <span class="chip">GP${26 + m.ch}</span> (${state.cfg.whammyMin}–${state.cfg.whammyMax}${state.cfg.whammyInvert ? ', inverted' : ''})`);
+        const bs = $('#bSkip'); if (bs) { bs.textContent = 'Continue →'; bs.classList.add('primary'); }
+      }
+    };
+    $('#wCapRest').addEventListener('click', () => capture('rest'));
+    $('#wCapFull').addEventListener('click', () => capture('full'));
     $('#wRedo').addEventListener('click', () => {
       state.cfg.whammyCh = PIN_NONE; pushCfg(); stepCtx.cal.reset(); stepCtx.done = false; renderStep();
     });
@@ -404,7 +426,7 @@ function tickStep(s) {
     }
     const p = stepCtx.cal.feed(s);
     $('#wBar').style.width = (p.fraction * 100).toFixed(0) + '%';
-    $('#wLabel').textContent = p.channel < 0 ? 'Waiting for movement…' : `Sweeps detected: ${Math.min(2, Math.floor(p.switches / 2))} / 2 · swing ${p.range} counts`;
+    $('#wLabel').textContent = p.channel < 0 ? 'Waiting for movement…' : `Sweeps detected: ${Math.min(2, Math.floor(p.switches / 2))} / 2 · swing ${p.range} counts` + (p.range && p.range < 200 ? ' — very small: a healthy whammy swings several hundred counts. Check that both outer legs of the pot go to 3V3 and GND.' : '');
     if (p.done) {
       const r = stepCtx.cal.result();
       Object.assign(c, { whammyCh: r.channel, whammyMin: r.min, whammyMax: r.max, whammyInvert: r.invert });

@@ -162,7 +162,7 @@ int16_t input_whammy(void) {
     if (g_cfg.whammy_ch >= NUM_ADC_CH) return 0;
     int32_t lo = g_cfg.whammy_min, hi = g_cfg.whammy_max;
     int32_t range = hi - lo;
-    if (range < 30) return 0;
+    if (range < 8) return 0;
     int32_t v = (int32_t)adc_val[g_cfg.whammy_ch] - lo;
     if (v < 0) v = 0;
     if (v > range) v = range;
