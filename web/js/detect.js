@@ -1,5 +1,5 @@
 // Pure detection logic (no DOM / USB) so it can be unit tested in Node.
-import { NUM_DIGITAL_PINS } from './protocol.js';
+import { NUM_DIGITAL_PINS } from './protocol.js?v=dev';
 
 const diff8 = (a, b) => (a - b + 256) & 0xff;
 

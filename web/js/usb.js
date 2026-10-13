@@ -1,4 +1,4 @@
-import { VID, PIDS, VREQ, CFG_SIZE, parseConfig, serializeConfig, parseInfo, parseStatus } from './protocol.js';
+import { VID, PIDS, VREQ, CFG_SIZE, parseConfig, serializeConfig, parseInfo, parseStatus } from './protocol.js?v=dev';
 
 const IFACE = 1;   // vendor config interface
 

@@ -1,10 +1,10 @@
 import {
   FUNCS, FUNC_LABEL, PIN_NONE, NUM_DIGITAL_PINS, NUM_FRETS, MODES, MODE_NONE, BOARDS,
   DEBOUNCE_MODES, defaultConfig, whammyValue, isPressed, EFFECTS, RGB_PRESETS, FRET_DEFAULT_COLORS, NUM_LEDS,
-} from './protocol.js';
-import { YaccDevice, webusbSupported } from './usb.js';
-import { PinDetector, WhammyCalibrator } from './detect.js';
-import { createGuitar } from './guitar.js';
+} from './protocol.js?v=dev';
+import { YaccDevice, webusbSupported } from './usb.js?v=dev';
+import { PinDetector, WhammyCalibrator } from './detect.js?v=dev';
+import { createGuitar } from './guitar.js?v=dev';
 
 const $ = (s, r = document) => r.querySelector(s);
 const diff8 = (x, y) => (x - y + 256) & 0xff;
