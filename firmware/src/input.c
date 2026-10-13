@@ -13,11 +13,20 @@ static bool differing[NUM_DIGITAL_PINS];
 static uint8_t presses[NUM_DIGITAL_PINS];
 
 // ---- logical controls with tunable debounce ----
+// Debounce engine ("lockout + glitch filter"):
+//  * GP2040-CE style lockout: after an accepted edge, further changes are ignored for the
+//    debounce window, then the input re-syncs to wherever the contact settled.
+//  * A tiny glitch filter in front (press 0.2 ms, release 1 ms, as in Santroller's hold-off on release)
+//    rejects EMI spikes and contact flutter that a pure leading-edge debouncer would report as presses.
+// Result: presses cost ~0.2 ms, releases ~1 ms, and a bouncing switch can never double-fire.
 typedef struct {
-    bool out;
-    bool armed;
-    uint32_t t;
+    bool out;            // debounced state, true = pressed
+    bool raw;            // last raw sample
+    uint32_t raw_since;  // when raw last changed
+    uint32_t last_change;// when `out` last changed
 } deb_t;
+#define PRESS_CONFIRM_US    200u
+#define RELEASE_CONFIRM_US  1000u
 static deb_t slot[NUM_SLOTS];
 static uint32_t strum_lock_until;
 static bool strum_lock_active;
@@ -48,26 +57,14 @@ void input_init(void) {
     }
 }
 
-static bool deb_step(deb_t *d, bool raw, uint32_t now, uint32_t win, uint8_t mode) {
-    if (win == 0) { d->out = raw; return d->out; }
-    switch (mode) {
-        case DEB_RELEASE:
-            if (raw) { d->out = true; d->t = now; }
-            else if (d->out && elapsed(now, d->t, win)) d->out = false;
-            break;
-        case DEB_PRESS:
-            if (raw) {
-                if (!d->armed) { d->armed = true; d->t = now; }
-                if (elapsed(now, d->t, win)) d->out = true;
-            } else {
-                d->armed = false;
-                d->out = false;
-            }
-            break;
-        default: // DEB_BOTH
-            if (raw == d->out) d->t = now;
-            else if (elapsed(now, d->t, win)) d->out = raw;
-            break;
+static inline bool deb_step(deb_t *d, bool raw, uint32_t now, uint32_t lockout, uint32_t press_confirm, uint32_t release_confirm) {
+    if (raw != d->raw) { d->raw = raw; d->raw_since = now; }
+    if (raw == d->out) return d->out;
+    if (lockout == 0) { d->out = raw; d->last_change = now; return d->out; }   // debounce off
+    uint32_t confirm = raw ? press_confirm : release_confirm;
+    if (elapsed(now, d->last_change, lockout) && elapsed(now, d->raw_since, confirm)) {
+        d->out = raw;
+        d->last_change = now;
     }
     return d->out;
 }
@@ -103,7 +100,6 @@ void input_poll(void) {
 
     // logical controls
     uint32_t win = (uint32_t)g_cfg.debounce_100us * 100u;
-    uint8_t mode = g_cfg.debounce_mode;
     bool combined = (g_cfg.flags & CFG_FLAG_COMBINED_STRUM) && win;
 
     bool up_prev = slot[F_STRUM_UP].out, down_prev = slot[F_STRUM_DOWN].out;
@@ -114,9 +110,12 @@ void input_poll(void) {
             !slot[F_STRUM_UP].out && !slot[F_STRUM_DOWN].out) {
             raw = false;                       // a new strum can't start inside the window
         }
-        // a mercury ball switch chatters a lot while it rolls: never debounce it for less than 15 ms
-        uint32_t w = (s == SLOT_TILT && win < 15000u) ? 15000u : win;
-        deb_step(&slot[s], raw, now, w, s == SLOT_TILT ? DEB_RELEASE : mode);
+        if (s == SLOT_TILT) {
+            // a mercury ball switch chatters for a while as the ball rolls: lock it out for at least 20 ms
+            deb_step(&slot[s], raw, now, win < 20000u ? 20000u : win, 5000u, 10000u);
+        } else {
+            deb_step(&slot[s], raw, now, win, PRESS_CONFIRM_US, RELEASE_CONFIRM_US);
+        }
     }
     if (combined && (slot[F_STRUM_UP].out != up_prev || slot[F_STRUM_DOWN].out != down_prev)) {
         strum_lock_until = now + win;

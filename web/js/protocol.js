@@ -71,7 +71,7 @@ export function defaultConfig() {
     pins: Array(FUNCS.length).fill(PIN_NONE),
     whammyCh: PIN_NONE, whammyInvert: false, whammyMin: 0, whammyMax: 4095,
     tiltPin: PIN_NONE,
-    btEnabled: false, tiltEnabled: false, combinedStrum: false,
+    btEnabled: false, tiltEnabled: false, combinedStrum: true,
     usbMode: 0, debounceMode: 0, debounce100us: 50,
     whammySmooth: 2, whammyDeadzone: 3,
     bootModes: [0, MODE_NONE, 2, 1, MODE_NONE],

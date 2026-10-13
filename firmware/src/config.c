@@ -54,7 +54,7 @@ void config_defaults(yacc_config_t *c) {
     c->whammy_max = 4095;
     c->tilt_pin = PIN_NONE;
     c->usb_mode = MODE_XINPUT;
-    c->debounce_mode = DEB_RELEASE;
+    c->debounce_mode = DEB_RELEASE;   // legacy field, the engine no longer has modes
     c->debounce_100us = 50;           // 5 ms
     c->whammy_smooth = 2;
     c->whammy_deadzone = 3;
@@ -63,7 +63,7 @@ void config_defaults(yacc_config_t *c) {
     c->boot_modes[F_YELLOW] = MODE_HID;
     c->boot_modes[F_BLUE]   = MODE_PS3_GH;
     c->boot_modes[F_ORANGE] = MODE_NONE;
-    c->flags |= CFG_FLAG_RGB_BOOTFLASH;
+    c->flags |= CFG_FLAG_RGB_BOOTFLASH | CFG_FLAG_COMBINED_STRUM;
     c->rgb_pin = PIN_NONE;
     c->rgb_brightness = 40;
     c->rgb_effect = EFX_BRIGHT;

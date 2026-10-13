@@ -49,13 +49,13 @@ The mode picked by holding a fret is remembered (like GP2040-CE). Every fret →
 
 ## Debounce
 
-Three behaviours, ported from Santroller's options, each with a 0–50 ms (0.1 ms steps) window:
+YACC uses a *lockout + glitch filter* engine, designed after reading how Santroller and GP2040-CE do it:
 
-* **Hold release** (default) – presses register instantly, releases are held for the window. Lowest latency.
-* **Delay press** – a press registers only after being held for the window.
-* **Classic** – any change must be stable for the window.
+* **GP2040-CE** debounces with a per-pin lockout: the first edge is taken immediately, then changes are ignored for the delay (default 5 ms) before the input re-syncs to the raw level.
+* **Santroller** lets presses through instantly and holds *releases* for the debounce time, with an optional press-delay mode and a combined strum debounce.
+* **YACC** takes the best of both: a 0.2 ms press / 1 ms release glitch filter (so EMI spikes and contact flutter never register), then a per-input lockout (default 5 ms) after every accepted edge, then re-sync. Strum up/down additionally share a lockout so a bouncing strum switch can't fire both directions. A mercury tilt switch gets at least a 20 ms lockout.
 
-Plus *combined strum debounce*, where strum up/down share one window. Inputs are sampled at up to 10 kHz.
+The only knob is the lockout time (presets from Off to 20 ms, or a slider up to 25 ms). Inputs are sampled at up to 10 kHz.
 
 ## Boards
 

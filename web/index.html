@@ -95,10 +95,10 @@
       <div class="card stage" style="grid-column:1/-1"><div class="muted" style="margin:0 0 4px 8px">Live preview — press buttons and move the whammy to feel your changes</div><div id="tuneStage"></div></div>
       <div class="card">
         <h2>Button debounce</h2>
-        <p class="muted">Filters the electrical chatter of worn switches so one press never counts twice.</p>
+        <p class="muted">Filters switch chatter so one press never counts twice. Presses register within ~0.2 ms and releases within ~1 ms; after each change the input is locked for the time below, then re-syncs to where the contact settled. The same approach GP2040-CE uses, plus a tiny glitch filter borrowed from Santroller's hold-off.</p>
         <div class="slider-row"><label for="debT">Debounce time</label><span class="val" id="debTVal"></span>
-          <input type="range" id="debT" min="0" max="500" step="1"></div>
-        <div class="radio-cards" id="debModes" style="margin-top:12px"></div>
+          <input type="range" id="debT" min="0" max="250" step="5"></div>
+        <div class="row" id="debPresets" style="margin-top:12px;flex-wrap:wrap"></div>
         <div class="opt"><div><h3>Combined strum debounce</h3><span class="muted">Strum up and down share one window, so a bouncing strum bar can't register both.</span></div>
           <label class="switch"><input type="checkbox" id="combStrum"><i></i></label></div>
       </div>

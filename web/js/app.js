@@ -467,14 +467,15 @@ function buildTune() {
   };
   dt.value = c.debounce100us; ws.value = c.whammySmooth; wd.value = c.whammyDeadzone;
   $('#combStrum').checked = c.combinedStrum; $('#wInv').checked = c.whammyInvert;
-  $('#debModes').innerHTML = DEBOUNCE_MODES.map((m) => `<label><input type="radio" name="dm" value="${m.id}" ${c.debounceMode === m.id ? 'checked' : ''}><div><b>${m.name}</b><br><span class="muted">${m.desc}</span></div></label>`).join('');
+  const PRESETS = [['Off', 0], ['Fast · 2 ms', 20], ['Balanced · 5 ms', 50], ['Safe · 10 ms', 100], ['Worn switches · 20 ms', 200]];
+  $('#debPresets').innerHTML = PRESETS.map(([n, v]) => `<button class="preset" data-deb="${v}"><span style="margin:0">${n}</span></button>`).join('');
   const live = () => { refresh(); $('#tuneState').textContent = 'Live changes — not saved yet.'; pushCfg(); };
   dt.oninput = () => { c.debounce100us = +dt.value; live(); };
   ws.oninput = () => { c.whammySmooth = +ws.value; live(); };
   wd.oninput = () => { c.whammyDeadzone = +wd.value; live(); };
   $('#combStrum').onchange = (e) => { c.combinedStrum = e.target.checked; live(); };
   $('#wInv').onchange = (e) => { c.whammyInvert = e.target.checked; live(); };
-  $('#debModes').onchange = (e) => { c.debounceMode = +e.target.value; live(); };
+  $('#debPresets').onclick = (e) => { const b = e.target.closest('[data-deb]'); if (b) { c.debounce100us = +b.dataset.deb; dt.value = c.debounce100us; live(); } };
   $('#saveTune').onclick = async () => { await saveToController(); $('#tuneState').textContent = 'Saved to the controller.'; };
   $('#resetCfg').onclick = async () => {
     if (!confirm('Reset every setting (pins, whammy, tuning, modes) to factory defaults?')) return;
