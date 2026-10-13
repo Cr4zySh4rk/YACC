@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 #include "pico/bootrom.h"
 #include "hardware/watchdog.h"
+#include "hardware/structs/watchdog.h"
 #include "tusb.h"
 
 #include "usb_common.h"
@@ -19,6 +20,14 @@ static volatile bool save_pending;
 static volatile bool save_ok = true;
 static volatile int reboot_mode = -1;     // -1 none, 0 normal, 1 BOOTSEL
 static volatile uint64_t reboot_at;
+static volatile bool setup_reboot;
+
+// Asked over HID (PS3 mode has no WebUSB interface): restart once in setup mode (XInput + web config)
+#define SETUP_MAGIC 0x59414743u   // "YAGC"
+void usb_request_setup_reboot(void) {
+    setup_reboot = true;
+    reboot_at = time_us_64() + 150000;
+}
 
 #define STATUS_LEN (4 + 2 * NUM_ADC_CH + NUM_DIGITAL_PINS + 1)
 
@@ -227,6 +236,12 @@ static bool boot_pressed(int f) {
 }
 
 static uint8_t pick_mode(void) {
+    // the configurator asked for setup mode from PS3 mode: honour it for this boot only
+    if (watchdog_caused_reboot() && watchdog_hw->scratch[0] == SETUP_MAGIC) {
+        watchdog_hw->scratch[0] = 0;
+        return MODE_XINPUT;
+    }
+    watchdog_hw->scratch[0] = 0;
     // star power + plus + strum up at plug-in -> straight to the UF2 bootloader
     if (boot_pressed(F_STAR) && boot_pressed(F_PLUS) && boot_pressed(F_STRUM_UP)) {
         reset_usb_boot(0, 0);
@@ -274,6 +289,11 @@ int main(void) {
 
         uint64_t now = time_us_64();
 
+        if (setup_reboot && now >= reboot_at) {
+            watchdog_hw->scratch[0] = SETUP_MAGIC;
+            watchdog_reboot(0, 0, 10);
+            while (true) tight_loop_contents();
+        }
         if (reboot_mode >= 0 && now >= reboot_at) {
             if (reboot_mode == 1) reset_usb_boot(0, 0);
             else watchdog_reboot(0, 0, 10);

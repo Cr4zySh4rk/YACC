@@ -151,7 +151,12 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
     return 0;
 }
 
+// The configurator (WebHID) sends feature report "YAGCC!" to a controller running in PS3 mode
+// to restart it in setup mode without unplugging.
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type,
                            uint8_t const *buffer, uint16_t bufsize) {
-    (void)instance; (void)report_id; (void)report_type; (void)buffer; (void)bufsize;
+    (void)instance; (void)report_id;
+    if (report_type == HID_REPORT_TYPE_FEATURE && bufsize >= 6 && memcmp(buffer, "YAGCC!", 6) == 0) {
+        usb_request_setup_reboot();
+    }
 }

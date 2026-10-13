@@ -30,7 +30,9 @@ Flash the board, plug it in, and the web app walks you through mapping every but
 | Plus | **Setup mode** | XInput + web config for this boot only, nothing saved |
 | Star + Plus + Strum up | **Bootloader** | Jumps to UF2 mode so you can reflash without touching BOOTSEL |
 
-The mode picked by holding a fret is remembered (like GP2040-CE). Every fret → mode assignment can be changed on the **Modes** tab.
+The mode picked by holding a fret is remembered (like GP2040-CE).
+
+**Configuring in other modes:** HID mode keeps the WebUSB config channel, but browsers grant permission per mode, so press *Connect* once after switching. PS3 mode has no config channel (it must look exactly like a real PS3 guitar); the Setup page finds it over WebHID and can restart it in setup mode with one click, or hold *Plus* while plugging in. **macOS** has no XInput driver, so use HID mode for games on a Mac. Every fret → mode assignment can be changed on the **Modes** tab.
 
 ## Wiring
 

@@ -39,6 +39,7 @@
 extern uint8_t g_usb_mode;         // MODE_* currently running
 bool mode_has_config(uint8_t mode);
 
+void usb_request_setup_reboot(void);                                    // main.c
 bool xinput_send(const uint8_t *report, uint16_t len);
 bool usb_vendor_request(uint8_t rhport, uint8_t stage, tusb_control_request_t const *req);   // main.c
 bool xinput_vendor_request(uint8_t rhport, uint8_t stage, tusb_control_request_t const *req);

@@ -18,9 +18,9 @@ export const NUM_DIGITAL_PINS = 23;
 export const MODE_NONE = 0xff;
 
 export const MODES = [
-  { id: 0, name: 'XInput', short: 'XInput', desc: 'Xbox 360 guitar. Plug-and-play on Windows (Clone Hero, YARG, Fortnite Festival).' },
-  { id: 1, name: 'PS3 Guitar Hero', short: 'PS3', desc: 'Identifies as a RedOctane PS3 Guitar Hero guitar (0x12BA:0x0100). No web config in this mode.' },
-  { id: 2, name: 'HID Gamepad', short: 'HID', desc: 'Generic HID gamepad for Linux, macOS, Android and emulators.' },
+  { id: 0, name: 'XInput', short: 'XInput', desc: 'Xbox 360 guitar. Plug-and-play on Windows (Clone Hero, YARG, Fortnite Festival). macOS has no XInput driver — use HID mode on a Mac.' },
+  { id: 1, name: 'PS3 Guitar Hero', short: 'PS3', desc: 'Identifies as a RedOctane PS3 Guitar Hero guitar (0x12BA:0x0100). No web config in this mode — the Setup page can restart it in setup mode.' },
+  { id: 2, name: 'HID Gamepad', short: 'HID', desc: 'Generic HID gamepad for macOS, Linux, Android and emulators. Configurable here too (the browser asks for permission once for this mode).' },
 ];
 
 export const BOARDS = {

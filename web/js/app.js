@@ -133,6 +133,7 @@ async function connect(device, { navigate = false } = {}) {
 
 function onLost() {
   state.dev = null; state.info = null;
+  setTimeout(scanHid, 1500);
   updatePill();
   toast('Controller disconnected');
 }
@@ -641,6 +642,58 @@ async function directFlash(url, name) {
 }
 
 // ------------------------------------------------------------------ boot
+// ------------------------------------------------------------------ controllers running in PS3 / HID mode
+// PS3 mode must look exactly like a real PS3 guitar, so it has no WebUSB config interface; HID mode has one
+// but the browser asks for permission separately for each mode. WebHID lets us find both and help out.
+const HID_FILTERS = [{ vendorId: 0x12ba, productId: 0x0100 }, { vendorId: 0x1209, productId: 0x0002 }];
+const isOurHid = (d) => HID_FILTERS.some((f) => f.vendorId === d.vendorId && f.productId === d.productId);
+
+function showOtherMode(dev) {
+  const box = $('#otherMode');
+  if (!box) return;
+  if (!dev || state.dev) { box.innerHTML = ''; return; }
+  if (dev.vendorId === 0x12ba) {
+    box.innerHTML = `<div class="notice info" style="text-align:left">
+        <b>Found your controller in PS3 Guitar Hero mode.</b> That mode has no configuration channel, because it has to look exactly like a real PS3 guitar.
+        <div class="row" style="margin-top:10px"><button class="btn primary small" id="toSetup">Restart it in setup mode</button>
+        <span class="muted" style="font-size:12px">or unplug it and hold <b>Plus</b> while plugging it back in</span></div></div>`;
+    $('#toSetup').onclick = async () => {
+      try {
+        if (!dev.opened) await dev.open();
+        const data = new Uint8Array(32);
+        data.set([...'YAGCC!'].map((ch) => ch.charCodeAt(0)));
+        await dev.sendFeatureReport(0, data);
+        toast('Restarting in setup mode…', 'ok');
+        box.innerHTML = '<div class="notice info">Restarting… if the page does not connect by itself in a few seconds, press <b>Connect controller</b>.</div>';
+      } catch (e) {
+        toast('Could not reach it: ' + e.message + ' — hold Plus while plugging in instead.', 'bad');
+      }
+    };
+  } else {
+    box.innerHTML = `<div class="notice info" style="text-align:left"><b>Found your controller in HID mode.</b>
+        The browser asks for permission once per mode: press <b>Connect controller</b> and pick <b>YAGCC Guitar (HID)</b>.</div>`;
+  }
+}
+
+async function scanHid() {
+  if (!('hid' in navigator) || state.dev) return showOtherMode(null);
+  try { showOtherMode((await navigator.hid.getDevices()).find(isOurHid)); } catch { /* not allowed */ }
+}
+
+$('#findHid').onclick = async (e) => {
+  e.preventDefault();
+  if (!('hid' in navigator)) { toast('This browser has no WebHID — use Chrome or Edge.', 'bad'); return; }
+  try {
+    const [d] = await navigator.hid.requestDevice({ filters: HID_FILTERS });
+    if (d) showOtherMode(d); else toast('No controller in PS3 or HID mode was picked.');
+  } catch (err) { toast('Search failed: ' + err.message, 'bad'); }
+};
+if ('hid' in navigator) {
+  navigator.hid.addEventListener('connect', () => scanHid());
+  navigator.hid.addEventListener('disconnect', () => scanHid());
+  scanHid();
+}
+
 $('#connectBtn').onclick = pickAndConnect;
 $('#connectBtn2').onclick = pickAndConnect;
 initFlash();
