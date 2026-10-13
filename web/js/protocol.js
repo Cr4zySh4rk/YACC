@@ -125,7 +125,7 @@ export function serializeConfig(c) {
   dv.setUint8(27, c.whammyDeadzone);
   c.bootModes.forEach((m, i) => dv.setUint8(28 + i, m));
   dv.setUint8(33, c.rgbPin);
-  dv.setUint8(34, Math.max(0, Math.min(100, c.rgbBrightness)));
+  dv.setUint8(34, Math.max(0, Math.min(255, c.rgbBrightness)));
   dv.setUint8(35, c.rgbEffect);
   dv.setUint8(36, Math.max(1, Math.min(10, c.rgbSpeed)));
   c.ledMap.forEach((m, i) => dv.setUint8(37 + i, m));

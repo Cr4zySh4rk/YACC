@@ -83,7 +83,7 @@ typedef struct __attribute__((packed)) {
     uint8_t  whammy_deadzone;     // 27      percent of range
     uint8_t  boot_modes[NUM_FRETS]; // 28..32 mode to switch to when this fret is held at plug-in
     uint8_t  rgb_pin;             // 33      data GPIO of the WS2812 chain or PIN_NONE
-    uint8_t  rgb_brightness;      // 34      0..100 (scaled to at most 100/255 of full power)
+    uint8_t  rgb_brightness;      // 34      0..255
     uint8_t  rgb_effect;          // 35      EFX_*
     uint8_t  rgb_speed;           // 36      1..10
     uint8_t  led_map[NUM_FRETS];  // 37..41  position in the chain of each fret's LED

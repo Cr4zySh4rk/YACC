@@ -41,7 +41,7 @@ The mode picked by holding a fret is remembered (like GP2040-CE). Every fret →
 ## RGB lighting (WS2812)
 
 * Five individually addressable WS2812/NeoPixel LEDs on **one data pin** (any of GP0–GP22 not used by a button), driven by a PIO state machine.
-* **Brightness 0–100** (of 255) – deliberately capped so the strip never pulls much current.
+* **Brightness 0–255** – full range; five LEDs at full white draw up to ~300 mA from USB.
 * Per-fret **colours** with presets, and an **LED order wizard**: each LED lights white in turn and you press the fret above it.
 * **Effects**: static, dim on press, off on press, brighten on press, flash & fade, breathing, rainbow (speed adjustable).
 * **Mode indicator**: after plug-in the fret LED that selects the running mode (green = XInput, blue = PS3, yellow = HID by default) flashes for one second.

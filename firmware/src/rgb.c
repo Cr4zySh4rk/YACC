@@ -76,8 +76,7 @@ static void hsv(uint8_t h, uint8_t *r, uint8_t *g, uint8_t *b) {
 }
 
 static uint32_t pack(uint8_t r, uint8_t g, uint8_t b, uint8_t level, uint8_t bright) {
-    // brightness is capped at 100 of 255 so five LEDs never pull much current
-    uint32_t k = (uint32_t)level * bright;                  // 0 .. 255*100
+    uint32_t k = (uint32_t)level * bright;                  // 0 .. 255*255
     uint32_t rr = (uint32_t)r * k / (255u * 255u);
     uint32_t gg = (uint32_t)g * k / (255u * 255u);
     uint32_t bb = (uint32_t)b * k / (255u * 255u);
@@ -94,7 +93,7 @@ void rgb_task(void) {
     if ((uint32_t)(now - last_frame) < FRAME_US) return;
     last_frame = now;
 
-    uint8_t bright = g_cfg.rgb_brightness > 100 ? 100 : g_cfg.rgb_brightness;
+    uint8_t bright = g_cfg.rgb_brightness;                  // 0..255
     uint32_t px[NUM_LEDS] = {0};
     bool testing = test_led >= 0 && (int32_t)(now - test_until) < 0;
     bool booting = (g_cfg.flags & CFG_FLAG_RGB_BOOTFLASH) && boot_fret >= 0 && (uint32_t)(now - boot_t0) < BOOT_FLASH_US;

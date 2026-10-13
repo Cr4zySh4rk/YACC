@@ -40,7 +40,7 @@ bool config_validate(const yacc_config_t *c) {
     for (int i = 0; i < NUM_FRETS; i++)
         if (c->boot_modes[i] != MODE_NONE && c->boot_modes[i] >= NUM_MODES) return false;
     if (c->rgb_pin != PIN_NONE && c->rgb_pin >= NUM_DIGITAL_PINS) return false;
-    if (c->rgb_brightness > 100 || c->rgb_effect >= NUM_EFX) return false;
+    if (c->rgb_effect >= NUM_EFX) return false;
     if (c->rgb_speed < 1 || c->rgb_speed > 10) return false;
     for (int i = 0; i < NUM_FRETS; i++) if (c->led_map[i] >= NUM_LEDS) return false;
     return true;

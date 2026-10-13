@@ -135,8 +135,8 @@
           <div class="opt"><div><h3>Data pin</h3><span class="muted">The GPIO connected to the first LED's DIN.</span></div>
             <select id="rgbPin"></select></div>
           <div class="slider-row"><label for="rgbBri">Brightness</label><span class="val" id="rgbBriVal"></span>
-            <input type="range" id="rgbBri" min="0" max="100" step="1"></div>
-          <div class="muted" style="font-size:13px">Capped at 100 (of 255) so five LEDs never pull much power.</div>
+            <input type="range" id="rgbBri" min="0" max="255" step="1"></div>
+          <div class="muted" style="font-size:13px">0–255. Five LEDs at full white draw up to ~300 mA from USB; lower values run cooler and are easier on the eyes.</div>
           <div class="opt"><div><h3>Show the mode on plug-in</h3><span class="muted">Flashes the fret LED that selects the running mode (green = XInput, blue = PS3, yellow = HID by default) for one second.</span></div>
             <label class="switch"><input type="checkbox" id="rgbFlash"><i></i></label></div>
         </div>

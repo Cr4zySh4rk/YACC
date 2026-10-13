@@ -288,8 +288,8 @@ function renderStep() {
         ${c.rgbEnabled ? `<div class="opt"><div><h3>Data pin</h3><span class="muted">The GPIO wired to the first LED's DIN.</span></div>
             <select id="rgbPinSel"><option value="255">Choose pin…</option>${free.map((p) => `<option value="${p}" ${p === c.rgbPin ? 'selected' : ''}>GP${p}</option>`).join('')}</select></div>
           <div class="slider-row"><label for="rgbBriS">Brightness</label><span class="val" id="rgbBriSVal">${c.rgbBrightness}</span>
-            <input type="range" id="rgbBriS" min="0" max="100" step="1" value="${c.rgbBrightness}"></div>
-          <div class="notice info" style="margin-top:10px">Limited to 100 (of 255) to keep the current draw low. Colours, effects and reactive modes live on the <b>Lights</b> tab.</div>` : ''}
+            <input type="range" id="rgbBriS" min="0" max="255" step="1" value="${c.rgbBrightness}"></div>
+          <div class="notice info" style="margin-top:10px">Brightness runs 0–255. Colours, effects and reactive modes live on the <b>Lights</b> tab.</div>` : ''}
         ${nav(`<button class="btn small primary" id="bSkip" ${c.rgbEnabled && c.rgbPin === PIN_NONE ? 'disabled' : ''}>${c.rgbEnabled ? 'Continue →' : 'No RGB — continue →'}</button>`)}`;
       wireNav();
       $('#rgbSw').addEventListener('change', (e) => { c.rgbEnabled = e.target.checked; applyColors(); pushCfg(); renderRgb(); });
@@ -371,7 +371,7 @@ function renderStep() {
     const rows = FUNCS.map((f, i) => `<tr><td>${funcName(i)}</td><td>${c.pins[i] === PIN_NONE ? '<span class="muted">not set</span>' : 'GP' + c.pins[i]}</td></tr>`).join('') +
       `<tr><td>Whammy</td><td>${c.whammyCh === PIN_NONE ? '<span class="muted">not set</span>' : 'GP' + (26 + c.whammyCh)}</td></tr>
        <tr><td>Tilt switch</td><td>${c.tiltEnabled && c.tiltPin !== PIN_NONE ? 'GP' + c.tiltPin : '<span class="muted">off</span>'}</td></tr>
-       <tr><td>RGB LEDs</td><td>${c.rgbEnabled && c.rgbPin !== PIN_NONE ? 'GP' + c.rgbPin + ' · ' + c.rgbBrightness + '%' : '<span class="muted">off</span>'}</td></tr>
+       <tr><td>RGB LEDs</td><td>${c.rgbEnabled && c.rgbPin !== PIN_NONE ? 'GP' + c.rgbPin + ' · brightness ' + c.rgbBrightness : '<span class="muted">off</span>'}</td></tr>
        <tr><td>Bluetooth</td><td>${c.btEnabled ? 'on' : 'off'}</td></tr>`;
     card.innerHTML = head + `<table class="sum">${rows}</table>
       <div class="notice info" style="margin-top:14px">Try every input — the guitar on the left lights up as you press. Tune debounce and whammy feel on the <b>Tune</b> tab.</div>
@@ -536,7 +536,7 @@ function buildLights() {
   const refresh = () => {
     $on.checked = c.rgbEnabled;
     $pin.value = String(c.rgbPin);
-    $bri.value = c.rgbBrightness; $('#rgbBriVal').textContent = c.rgbBrightness + ' / 100';
+    $bri.value = c.rgbBrightness; $('#rgbBriVal').textContent = c.rgbBrightness + ' / 255';
     $('#rgbFlash').checked = c.rgbBootFlash;
     $spd.value = c.rgbSpeed; $('#fxSpeedVal').textContent = c.rgbSpeed;
     document.querySelectorAll('input[name=fx]').forEach((r) => { r.checked = +r.value === c.rgbEffect; });
