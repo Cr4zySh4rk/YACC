@@ -99,43 +99,33 @@ export function createGuitar() {
   el('rect', { x: 950, y: 140, width: 10, height: 60, fill: '#0a0a0d' }, neck);
 
   // ================= body: single-cutaway Les Paul, horn under the neck
-  // Two overlapping circles (big lower bout, smaller upper bout) blended at the waist, with the
-  // single cutaway carved under the neck leaving a horn that points at the headstock.
-  const body = 'M438,136 A104,104 0 0 0 296,75.7 C277.9,84.5 247.3,59 230,49 A140,140 0 1 0 230,291 C247.3,281 277.9,255.8 296,264.3 A104,104 0 0 0 392,260 C420,262 446,262 456,250 C446,236 424,232 420,216 C418,206 428,204 438,204 Z';
+  // Outline traced (and de-skewed) from a photo of a printed Les Paul GH controller body.
+  const body = 'M53.5,82.1 C51.1,87.0 49.3,91.7 47.7,96.9 C46.1,102.0 44.9,107.3 44.0,113.0 C43.1,118.7 42.4,124.8 42.1,131.1 C41.9,137.3 42.1,144.3 42.5,150.5 C42.9,156.8 43.5,161.9 44.6,168.7 C45.7,175.4 47.5,184.0 49.3,190.8 C51.1,197.6 53.3,203.8 55.5,209.6 C57.7,215.4 59.9,220.5 62.5,225.7 C65.1,230.8 67.9,235.7 71.1,240.5 C74.2,245.2 77.9,250.1 81.6,254.4 C85.2,258.6 89.1,262.6 93.1,266.2 C97.1,269.8 101.1,272.9 105.6,276.1 C110.0,279.2 115.3,282.4 119.8,284.8 C124.4,287.3 127.8,288.9 132.9,290.8 C137.9,292.7 144.6,294.8 150.1,296.2 C155.7,297.6 158.4,298.6 166.1,299.2 C173.9,299.8 188.7,300.1 196.4,299.7 C204.2,299.3 207.8,298.0 212.5,296.9 C217.1,295.8 217.8,296.5 224.4,293.3 C230.9,290.1 242.2,284.1 251.7,277.6 C261.2,271.0 274.8,258.7 281.4,254.0 C287.9,249.4 287.9,250.7 290.9,249.8 C293.9,248.8 296.0,248.3 299.2,248.2 C302.4,248.1 306.3,248.3 309.9,249.2 C313.5,250.0 313.5,248.7 320.6,253.2 C327.7,257.8 345.1,271.4 352.7,276.4 C360.2,281.4 361.2,281.4 365.7,283.2 C370.3,285.0 376.0,286.7 380.0,287.4 C383.9,288.1 386.8,287.8 389.5,287.4 C392.2,287.1 394.7,286.5 396.0,285.4 C397.3,284.3 397.4,282.1 397.2,280.7 C397.0,279.4 397.0,279.5 394.8,277.4 C392.7,275.2 387.4,271.2 384.1,268.0 C380.9,264.7 377.8,261.5 375.2,257.9 C372.7,254.3 370.5,250.2 369.0,246.5 C367.5,242.8 366.6,239.0 366.2,235.8 C365.8,232.5 366.0,229.9 366.5,227.0 C367.0,224.1 367.9,221.3 369.3,218.3 C370.8,215.3 372.9,211.7 375.2,208.9 C377.6,206.1 382.5,203.6 383.5,201.5 C384.6,199.5 382.2,204.7 381.8,196.8 C381.4,189.0 381.0,162.7 381.2,154.6 C381.4,146.4 381.7,150.3 383.0,147.9 C384.2,145.4 387.0,141.6 388.9,139.8 C390.8,138.0 385.7,137.8 394.2,137.1 C402.8,136.4 432.2,136.3 440.0,135.8 C447.8,135.2 441.2,135.7 441.2,133.8 C441.2,131.9 440.6,127.2 440.0,124.4 C439.4,121.6 439.2,120.3 437.6,117.0 C436.0,113.6 433.8,108.5 430.5,104.2 C427.1,100.0 422.4,95.3 417.4,91.5 C412.5,87.7 407.2,84.2 400.8,81.4 C394.3,78.6 386.1,75.9 378.8,74.7 C371.5,73.6 362.9,74.0 356.8,74.5 C350.8,75.0 350.9,74.7 342.6,77.5 C334.2,80.3 314.2,88.7 306.9,91.1 C299.7,93.6 302.2,92.1 299.2,92.1 C296.2,92.2 292.3,91.9 289.1,91.3 C285.9,90.7 283.5,89.9 280.2,88.5 C276.9,87.1 277.7,88.7 269.5,82.7 C261.3,76.8 240.3,59.8 230.9,52.9 C221.5,46.1 219.7,45.1 213.1,41.7 C206.4,38.2 198.6,34.6 191.1,32.1 C183.6,29.7 174.3,27.8 167.9,26.8 C161.6,25.7 159.0,25.7 153.1,25.7 C147.1,25.7 138.5,26.0 132.3,26.8 C126.1,27.5 121.2,28.5 115.7,30.2 C110.1,31.8 104.2,34.2 99.0,36.7 C93.9,39.1 89.2,41.9 84.8,45.0 C80.3,48.1 76.1,51.6 72.4,55.4 C68.6,59.1 65.4,62.9 62.3,67.3 C59.1,71.8 55.9,77.2 53.5,82.1 Z';
   el('path', { d: body }, clip);
   const b = el('g', { filter: url('shadow') }, svg);
   el('path', { d: body, fill: url('sun'), stroke: '#f3ead0', 'stroke-width': 7, 'stroke-linejoin': 'round' }, b);
   el('path', { d: body, fill: 'none', stroke: '#0c1240', 'stroke-width': 1, opacity: 0.8 }, b);
   const tex = el('g', { 'clip-path': url('bodyClip') }, svg);
-  el('rect', { x: 40, y: 12, width: 420, height: 316, fill: '#fff', filter: url('grain'), opacity: 0.35 }, tex);
+  el('rect', { x: 30, y: 12, width: 430, height: 316, fill: '#fff', filter: url('grain'), opacity: 0.35 }, tex);
   el('path', { d: body, fill: url('gloss') }, tex);
-  // the S-shaped seam between the two halves of the printed top
-  el('path', { d: 'M262,60 C244,84 250,104 270,116 C312,140 262,170 300,200 C336,228 310,262 330,300', fill: 'none', stroke: '#0a1050', 'stroke-width': 1.4, opacity: 0.5 }, tex);
-
-  // neck plate screwed onto the body
-  const plate = el('g', { filter: shadowS }, svg);
-  el('rect', { x: 384, y: 128, width: 46, height: 84, rx: 5, fill: '#16171c', stroke: '#050507', 'stroke-width': 1.5 }, plate);
-  for (const [x, y] of [[394, 138], [394, 202], [420, 138], [420, 202]]) {
-    el('circle', { cx: x, cy: y, r: 3.6, fill: url('chrome'), stroke: '#555d70', 'stroke-width': 0.8 }, plate);
-    el('line', { x1: x - 2, y1: y, x2: x + 2, y2: y, stroke: '#4a5166', 'stroke-width': 0.9 }, plate);
-  }
 
   // strum slot through the middle of the body, with a cream bezel
   const pp = el('g', { filter: shadowS }, svg);
-  el('rect', { x: 222, y: 130, width: 156, height: 62, rx: 16, fill: url('cream'), stroke: '#a89a70', 'stroke-width': 1.2 }, pp);
-  el('rect', { x: 232, y: 140, width: 136, height: 42, rx: 12, fill: '#0b0c11', stroke: '#8e8160', 'stroke-width': 1.2 }, pp);
+  el('rect', { x: 214, y: 130, width: 144, height: 62, rx: 16, fill: url('cream'), stroke: '#a89a70', 'stroke-width': 1.2 }, pp);
+  el('rect', { x: 222, y: 139, width: 128, height: 44, rx: 12, fill: '#0b0c11', stroke: '#8e8160', 'stroke-width': 1.2 }, pp);
 
   // ================= strum bar: one bar along the slot, split in a down (body side) and an up (neck side) half
-  const strum = (name, x, glyph) => {
+  const strum = (name, y, glyph) => {
     const g = part(name, '#7c8cff');
-    el('rect', { class: 'plate', x, y: 144, width: 64, height: 34, rx: 13, fill: url('chrome'), stroke: '#5b6477', 'stroke-width': 1 }, g);
-    for (const xx of [x + 10, x + 16, x + 48, x + 54]) el('line', { x1: xx, y1: 151, x2: xx, y2: 171, stroke: '#7d8599', 'stroke-width': 1.1, opacity: 0.65 }, g);
-    el('rect', { class: 'litcap', x, y: 144, width: 64, height: 34, rx: 13 }, g);
+    const x = 228, w = 116, h = 18;
+    el('rect', { class: 'plate', x, y, width: w, height: h, rx: 9, fill: url('chrome'), stroke: '#5b6477', 'stroke-width': 1 }, g);
+    for (const xx of [x + 10, x + 15, x + 20, x + w - 20, x + w - 15, x + w - 10]) el('line', { x1: xx, y1: y + 4, x2: xx, y2: y + h - 4, stroke: '#7d8599', 'stroke-width': 1.1, opacity: 0.65 }, g);
+    el('rect', { class: 'litcap', x, y, width: w, height: h, rx: 9 }, g);
     el('path', { class: 'glyph', d: glyph }, g);
-    ring(g, x, 144, 64, 34, 13);
+    ring(g, x, y, w, h, 9);
   };
-  strum('strumDown', 236, 'M274,153 L265,161 L274,169');
-  strum('strumUp', 302, 'M334,153 L343,161 L334,169');
+  strum('strumUp', 142, 'M278,155 L286,147 L294,155');     // upper bar = strum up
+  strum('strumDown', 162, 'M278,167 L286,175 L294,167');   // lower bar = strum down
 
   // ================= star power & plus, lower left like the reference
   const round = (name, cx, cy, color, glyphEl) => {
@@ -146,15 +136,15 @@ export function createGuitar() {
     glyphEl(g);
     el('circle', { class: 'focus-ring', cx, cy, r: 27 }, g);
   };
-  round('star', 152, 196, '#facc15', (g) => {
+  round('star', 158, 199, '#facc15', (g) => {
     const pts = [];
     for (let i = 0; i < 10; i++) {
       const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? 4.6 : 10;
-      pts.push((152 + r * Math.cos(a)).toFixed(1) + ',' + (196 + r * Math.sin(a)).toFixed(1));
+      pts.push((158 + r * Math.cos(a)).toFixed(1) + ',' + (199 + r * Math.sin(a)).toFixed(1));
     }
     el('polygon', { class: 'glyph light fill', points: pts.join(' ') }, g);
   });
-  round('plus', 98, 230, '#38e1c6', (g) => el('path', { class: 'glyph light', d: 'M90,230 H106 M98,222 V238' }, g));
+  round('plus', 120, 238, '#38e1c6', (g) => el('path', { class: 'glyph light', d: 'M112,238 H128 M120,230 V246' }, g));
 
   // ================= whammy: base plate below the buttons, arm sweeps out past the lower edge
   const px = 200, py = 238, rest = 34, sweep = -22, len = 104;
@@ -203,8 +193,8 @@ export function createGuitar() {
   const label = (x, y, txt, cls = 'g-label') => { const e = el('text', { class: cls, x, y }, svg); e.textContent = txt; };
   const logo = el('text', { x: 1030, y: 176, class: 'g-logo', 'text-anchor': 'middle' }, svg);
   logo.textContent = 'YAGCC';
-  label(152, 166, 'Star power', 'g-label body'); label(98, 266, 'Plus', 'g-label body');
-  label(300, 122, 'Strum', 'g-label body'); label(176, 276, 'Whammy', 'g-label body');
+  label(158, 169, 'Star power', 'g-label body'); label(100, 208, 'Plus', 'g-label body');
+  label(286, 122, 'Strum', 'g-label body'); label(176, 276, 'Whammy', 'g-label body');
   label(600, 114, 'Tilt'); label(828, 222, 'Frets');
 
   const needleSet = (on) => { needle.style.transform = on ? 'rotate(-38deg)' : 'rotate(0deg)'; };
