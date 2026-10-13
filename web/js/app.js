@@ -648,6 +648,34 @@ async function directFlash(url, name) {
 const HID_FILTERS = [{ vendorId: 0x12ba, productId: 0x0100 }, { vendorId: 0x1209, productId: 0x0002 }];
 const isOurHid = (d) => HID_FILTERS.some((f) => f.vendorId === d.vendorId && f.productId === d.productId);
 
+async function restartToSetup(dev) {
+  const box = $('#otherMode');
+  box.innerHTML = '<div class="result"><span class="pulse"></span><span>Asking the controller to restart in setup mode…</span></div>';
+  let gone = false;
+  const onGone = (ev) => { if (ev.device === dev) gone = true; };
+  navigator.hid.addEventListener('disconnect', onGone);
+  try {
+    if (!dev.opened) await dev.open();
+    const data = new Uint8Array(32);
+    data.set([...'YAGCC!'].map((ch) => ch.charCodeAt(0)));
+    await dev.sendFeatureReport(0, data);
+  } catch (e) {
+    navigator.hid.removeEventListener('disconnect', onGone);
+    box.innerHTML = `<div class="result bad">Could not talk to it (${e.message}). Unplug it and hold <b>Plus</b> while plugging it back in instead.</div>`;
+    return;
+  }
+  await sleep(3000);
+  navigator.hid.removeEventListener('disconnect', onGone);
+  if (gone) {
+    box.innerHTML = '<div class="result ok">Restarted in setup mode. If it does not connect by itself in a moment, press <b>Connect controller</b> and pick <b>YAGCC Guitar Controller</b>.</div>';
+    await sleep(1500);
+    autoConnect(true);
+  } else {
+    box.innerHTML = `<div class="result bad" style="text-align:left">The controller did not restart. It is probably still running older firmware without this feature:
+      flash the latest <b>yagcc-…uf2</b> from the Flash page, or unplug it and hold <b>Plus</b> while plugging it back in.</div>`;
+  }
+}
+
 function showOtherMode(dev) {
   const box = $('#otherMode');
   if (!box) return;
@@ -657,18 +685,7 @@ function showOtherMode(dev) {
         <b>Found your controller in PS3 Guitar Hero mode.</b> That mode has no configuration channel, because it has to look exactly like a real PS3 guitar.
         <div class="row" style="margin-top:10px"><button class="btn primary small" id="toSetup">Restart it in setup mode</button>
         <span class="muted" style="font-size:12px">or unplug it and hold <b>Plus</b> while plugging it back in</span></div></div>`;
-    $('#toSetup').onclick = async () => {
-      try {
-        if (!dev.opened) await dev.open();
-        const data = new Uint8Array(32);
-        data.set([...'YAGCC!'].map((ch) => ch.charCodeAt(0)));
-        await dev.sendFeatureReport(0, data);
-        toast('Restarting in setup mode…', 'ok');
-        box.innerHTML = '<div class="notice info">Restarting… if the page does not connect by itself in a few seconds, press <b>Connect controller</b>.</div>';
-      } catch (e) {
-        toast('Could not reach it: ' + e.message + ' — hold Plus while plugging in instead.', 'bad');
-      }
-    };
+    $('#toSetup').onclick = () => restartToSetup(dev);
   } else {
     box.innerHTML = `<div class="notice info" style="text-align:left"><b>Found your controller in HID mode.</b>
         The browser asks for permission once per mode: press <b>Connect controller</b> and pick <b>YAGCC Guitar (HID)</b>.</div>`;
@@ -685,7 +702,9 @@ $('#findHid').onclick = async (e) => {
   if (!('hid' in navigator)) { toast('This browser has no WebHID — use Chrome or Edge.', 'bad'); return; }
   try {
     const [d] = await navigator.hid.requestDevice({ filters: HID_FILTERS });
-    if (d) showOtherMode(d); else toast('No controller in PS3 or HID mode was picked.');
+    if (!d) { toast('No controller in PS3 or HID mode was picked.'); return; }
+    if (d.vendorId === 0x12ba) restartToSetup(d);   // you picked it to configure it: switch straight away
+    else showOtherMode(d);
   } catch (err) { toast('Search failed: ' + err.message, 'bad'); }
 };
 if ('hid' in navigator) {
