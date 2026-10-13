@@ -99,16 +99,18 @@ export function createGuitar() {
   el('rect', { x: 950, y: 140, width: 10, height: 60, fill: '#0a0a0d' }, neck);
 
   // ================= body: single-cutaway Les Paul, horn under the neck
-  const body = 'M416,138 C414,110 400,82 370,66 C340,50 300,88 262,88 C224,88 200,30 150,30 C88,30 50,96 50,170 C50,244 88,310 150,310 C200,310 224,252 262,252 C304,252 350,296 410,286 C430,282 448,264 441,244 C434,228 424,214 416,202 Z';
+  // Two overlapping circles (big lower bout, smaller upper bout) blended at the waist, with the
+  // single cutaway carved under the neck leaving a horn that points at the headstock.
+  const body = 'M438,136 A104,104 0 0 0 296,75.7 C277.9,84.5 247.3,59 230,49 A140,140 0 1 0 230,291 C247.3,281 277.9,255.8 296,264.3 A104,104 0 0 0 392,260 C420,262 446,262 456,250 C446,236 424,232 420,216 C418,206 428,204 438,204 Z';
   el('path', { d: body }, clip);
   const b = el('g', { filter: url('shadow') }, svg);
   el('path', { d: body, fill: url('sun'), stroke: '#f3ead0', 'stroke-width': 7, 'stroke-linejoin': 'round' }, b);
   el('path', { d: body, fill: 'none', stroke: '#0c1240', 'stroke-width': 1, opacity: 0.8 }, b);
   const tex = el('g', { 'clip-path': url('bodyClip') }, svg);
-  el('rect', { x: 40, y: 20, width: 420, height: 300, fill: '#fff', filter: url('grain'), opacity: 0.35 }, tex);
+  el('rect', { x: 40, y: 12, width: 420, height: 316, fill: '#fff', filter: url('grain'), opacity: 0.35 }, tex);
   el('path', { d: body, fill: url('gloss') }, tex);
   // the S-shaped seam between the two halves of the printed top
-  el('path', { d: 'M232,30 C214,58 222,84 252,100 C300,126 250,160 292,190 C336,222 298,262 330,300', fill: 'none', stroke: '#0a1050', 'stroke-width': 1.4, opacity: 0.5 }, tex);
+  el('path', { d: 'M262,60 C244,84 250,104 270,116 C312,140 262,170 300,200 C336,228 310,262 330,300', fill: 'none', stroke: '#0a1050', 'stroke-width': 1.4, opacity: 0.5 }, tex);
 
   // neck plate screwed onto the body
   const plate = el('g', { filter: shadowS }, svg);
