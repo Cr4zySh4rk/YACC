@@ -134,8 +134,8 @@ void input_poll(void) {
             // the whammy appear on several channels at once.
             (void)adc_read(); (void)adc_read();
             uint32_t sum = 0;
-            for (int i = 0; i < 4; i++) sum += adc_read();
-            int32_t target = (int32_t)(sum / 4) << 4;
+            for (int i = 0; i < 16; i++) sum += adc_read();     // 16x oversampling: finer steps for small-swing sensors
+            int32_t target = (int32_t)(sum >> 2);              // (sum/16) << 4
             adc_acc[c] += (target - adc_acc[c]) >> sh;
             if (sh == 0) adc_acc[c] = target;
             adc_val[c] = (uint16_t)(adc_acc[c] >> 4);
@@ -162,7 +162,7 @@ int16_t input_whammy(void) {
     if (g_cfg.whammy_ch >= NUM_ADC_CH) return 0;
     int32_t lo = g_cfg.whammy_min, hi = g_cfg.whammy_max;
     int32_t range = hi - lo;
-    if (range < 100) return 0;
+    if (range < 30) return 0;
     int32_t v = (int32_t)adc_val[g_cfg.whammy_ch] - lo;
     if (v < 0) v = 0;
     if (v > range) v = range;

@@ -47,7 +47,7 @@ export class PinDetector {
  * clearly out-swings it.
  */
 export class WhammyCalibrator {
-  constructor({ minRange = 400, neededSwitches = 4 } = {}) {
+  constructor({ minRange = 90, neededSwitches = 4 } = {}) {
     this.minRange = minRange;
     this.needed = neededSwitches;
     this.reset();

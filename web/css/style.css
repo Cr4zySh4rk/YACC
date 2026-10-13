@@ -86,7 +86,7 @@ select { min-width: 220px; }
 .setup { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, 1fr); gap: 20px; align-items: start; }
 @media (max-width: 920px) { .setup { grid-template-columns: 1fr; } }
 .stage { padding: 14px 14px 8px; }
-svg.guitar { width: 100%; height: auto; display: block; }
+svg.guitar { display: block; margin: 0 auto; height: min(640px, 74vh); width: auto; max-width: 100%; aspect-ratio: 480 / 1000; }
 .progress { display: flex; gap: 5px; margin-bottom: 18px; flex-wrap: wrap; }
 .progress span { height: 6px; flex: 1 0 14px; border-radius: 3px; background: var(--line); }
 .progress span.done { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
@@ -121,8 +121,8 @@ table.sum td:last-child { text-align: right; font-family: ui-monospace, monospac
 /* ---------- guitar svg parts ---------- */
 .stage { background: radial-gradient(120% 90% at 50% 0%, rgba(124,140,255,.10), transparent 60%); }
 .g-label { fill: #6b7694; font: 600 10px Inter, system-ui, sans-serif; letter-spacing: .14em; text-anchor: middle; text-transform: uppercase; }
-.g-label.body { fill: #f6e7c6; opacity: .72; font-size: 9px; }
-.g-logo { fill: #e9d9a8; font: italic 700 20px Georgia, 'Times New Roman', serif; letter-spacing: .06em; }
+.g-label.body { fill: #f3ead0; opacity: .8; font-size: 9px; }
+.g-logo { fill: #e9d9a8; font: italic 700 17px Georgia, 'Times New Roman', serif; letter-spacing: .05em; }
 .part { transition: opacity .08s, filter .08s; opacity: .62; }
 .part.mapped { opacity: .88; }
 .part.on { opacity: 1; filter: drop-shadow(0 0 9px var(--c, #7c8cff)); }

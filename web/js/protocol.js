@@ -157,7 +157,7 @@ export function parseStatus(dv) {
 // Same maths as firmware input_whammy(): returns 0..1
 export function whammyValue(raw, cfg) {
   const range = cfg.whammyMax - cfg.whammyMin;
-  if (range < 100) return 0;
+  if (range < 30) return 0;
   let v = Math.min(Math.max(raw - cfg.whammyMin, 0), range) / range;
   if (cfg.whammyInvert) v = 1 - v;
   return v < cfg.whammyDeadzone / 100 ? 0 : v;

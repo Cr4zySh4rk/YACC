@@ -404,7 +404,7 @@ function tickStep(s) {
     }
     const p = stepCtx.cal.feed(s);
     $('#wBar').style.width = (p.fraction * 100).toFixed(0) + '%';
-    $('#wLabel').textContent = p.channel < 0 ? 'Waiting for movement…' : `Sweeps detected: ${Math.min(2, Math.floor(p.switches / 2))} / 2`;
+    $('#wLabel').textContent = p.channel < 0 ? 'Waiting for movement…' : `Sweeps detected: ${Math.min(2, Math.floor(p.switches / 2))} / 2 · swing ${p.range} counts`;
     if (p.done) {
       const r = stepCtx.cal.result();
       Object.assign(c, { whammyCh: r.channel, whammyMin: r.min, whammyMax: r.max, whammyInvert: r.invert });

@@ -81,4 +81,15 @@ const mk = (t, over = {}) => { const counts = Array(23).fill(0); for (const [p, 
   sweep(1500, 2000); sweep(2000, 1500); sweep(1500, 2000); sweep(2000, 1500);
   assert.ok(last.done, JSON.stringify(last));
 }
+// very small swing (about 150 counts, like a whammy sensor with a short travel) on GP28
+{
+  const w = new WhammyCalibrator();
+  let t = 0, last, k = 0;
+  const noise = () => ((k++ * 7919) % 7) - 3;
+  const sweep = (from, to) => { for (let i = 0; i <= 20; i++) last = w.feed({ t: (t += 20), adc: [2048 + noise(), 900 + noise(), from + ((to - from) * i) / 20 + noise()] }); };
+  for (let i = 0; i < 25; i++) w.feed({ t: (t += 20), adc: [2048, 900, 1800 + noise()] });
+  sweep(1800, 1960); sweep(1960, 1800); sweep(1800, 1960); sweep(1960, 1800);
+  assert.ok(last.done, JSON.stringify(last));
+  assert.equal(w.result().channel, 2);
+}
 console.log('detect tests passed');
