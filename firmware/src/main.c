@@ -10,6 +10,7 @@
 #include "config.h"
 #include "input.h"
 #include "bt.h"
+#include "rgb.h"
 
 // ---------------------------------------------------------------- state shared with USB callbacks
 static yacc_config_t cfg_rx;
@@ -40,7 +41,7 @@ static uint16_t build_info(void) {
     *p++ = YACC_VERSION_MAJOR;
     *p++ = YACC_VERSION_MINOR;
     *p++ = YACC_BOARD_ID;
-    *p++ = bt_supported() ? 1 : 0;      // capability bits
+    *p++ = (bt_supported() ? 1 : 0) | 2;   // capability bits: 1 = bluetooth, 2 = RGB
     *p++ = NUM_DIGITAL_PINS;
     *p++ = NUM_ADC_CH;
     *p++ = NUM_FUNCS;
@@ -96,6 +97,9 @@ bool usb_vendor_request(uint8_t rhport, uint8_t stage, tusb_control_request_t co
             return tud_control_status(rhport, req);
         case VREQ_SETMODE:
             if (req->wValue < NUM_MODES) g_cfg.usb_mode = (uint8_t)req->wValue;
+            return tud_control_status(rhport, req);
+        case VREQ_LEDTEST:
+            rgb_test_led(req->wValue < NUM_LEDS ? (int)req->wValue : -1);
             return tud_control_status(rhport, req);
         case VREQ_REBOOT:
             reboot_mode = req->wValue ? 1 : 0;
@@ -252,7 +256,9 @@ int main(void) {
     g_usb_mode = pick_mode();
 
     bt_init(g_cfg.flags & CFG_FLAG_BT_ENABLED);
+    rgb_init();
     tusb_init();
+    rgb_boot_indicator(g_usb_mode);
 
     uint64_t last_sent = 0, hold_start = 0;
     bool hold_fired = false;
@@ -264,6 +270,7 @@ int main(void) {
         tud_task();
         bt_task();
         input_poll();
+        rgb_task();
 
         uint64_t now = time_us_64();
 

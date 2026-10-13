@@ -39,6 +39,10 @@ bool config_validate(const yacc_config_t *c) {
     if (c->whammy_smooth > 6 || c->whammy_deadzone > 30) return false;
     for (int i = 0; i < NUM_FRETS; i++)
         if (c->boot_modes[i] != MODE_NONE && c->boot_modes[i] >= NUM_MODES) return false;
+    if (c->rgb_pin != PIN_NONE && c->rgb_pin >= NUM_DIGITAL_PINS) return false;
+    if (c->rgb_brightness > 100 || c->rgb_effect >= NUM_EFX) return false;
+    if (c->rgb_speed < 1 || c->rgb_speed > 10) return false;
+    for (int i = 0; i < NUM_FRETS; i++) if (c->led_map[i] >= NUM_LEDS) return false;
     return true;
 }
 
@@ -59,6 +63,14 @@ void config_defaults(yacc_config_t *c) {
     c->boot_modes[F_YELLOW] = MODE_HID;
     c->boot_modes[F_BLUE]   = MODE_PS3_GH;
     c->boot_modes[F_ORANGE] = MODE_NONE;
+    c->flags |= CFG_FLAG_RGB_BOOTFLASH;
+    c->rgb_pin = PIN_NONE;
+    c->rgb_brightness = 40;
+    c->rgb_effect = EFX_BRIGHT;
+    c->rgb_speed = 5;
+    static const uint8_t def_col[NUM_FRETS][3] = {
+        {0x22, 0xC5, 0x5E}, {0xEF, 0x44, 0x44}, {0xFA, 0xCC, 0x15}, {0x3B, 0x82, 0xF6}, {0xFB, 0x92, 0x3C}};
+    for (int i = 0; i < NUM_FRETS; i++) { c->led_map[i] = i; memcpy(c->colors[i], def_col[i], 3); }
     config_seal(c);
 }
 

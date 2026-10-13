@@ -1,12 +1,13 @@
 import {
   FUNCS, FUNC_LABEL, PIN_NONE, NUM_DIGITAL_PINS, NUM_FRETS, MODES, MODE_NONE, BOARDS,
-  DEBOUNCE_MODES, defaultConfig, whammyValue, isPressed,
+  DEBOUNCE_MODES, defaultConfig, whammyValue, isPressed, EFFECTS, RGB_PRESETS, FRET_DEFAULT_COLORS, NUM_LEDS,
 } from './protocol.js';
 import { YaccDevice, webusbSupported } from './usb.js';
 import { PinDetector, WhammyCalibrator } from './detect.js';
 import { createGuitar } from './guitar.js';
 
 const $ = (s, r = document) => r.querySelector(s);
+const diff8 = (x, y) => (x - y + 256) & 0xff;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const FRET_COLORS = ['#22c55e', '#ef4444', '#facc15', '#3b82f6', '#fb923c'];
 
@@ -97,6 +98,8 @@ function updatePill() {
   $('#setupMain').style.display = on ? '' : 'none';
   $('#tuneGate').style.display = on ? 'none' : '';
   $('#tuneMain').style.display = on ? '' : 'none';
+  $('#lightsGate').style.display = on ? 'none' : '';
+  $('#lightsMain').style.display = on ? '' : 'none';
   $('#modesGate').style.display = on ? 'none' : '';
   $('#modesMain').style.display = on ? '' : 'none';
 }
@@ -152,6 +155,7 @@ async function autoConnect(navigate) {
 // ------------------------------------------------------------------ status stream
 function onStatus(s) {
   state.status = s;
+  if (state.view === 'lights') updateLedPreview(s);
   for (const v of viewers) if (v.container.offsetParent !== null) updateViewer(v, s);
   tickStep(s);
 }
@@ -164,6 +168,8 @@ const STEPS = [
   { kind: 'button', func: 7, title: 'Star power', prompt: 'Press the star power button twice within one second.', focus: ['star'] },
   { kind: 'button', func: 8, title: 'Plus / Start', prompt: 'Press the plus button twice within one second.', focus: ['plus'] },
   { kind: 'whammy', title: 'Whammy bar', prompt: 'Move the whammy bar through its full range and back — twice.', focus: ['whammy'] },
+  { kind: 'rgb', title: 'RGB lighting', prompt: 'Did you wire WS2812 LEDs under the frets?', focus: [] },
+  { kind: 'ledmap', title: 'LED order', prompt: 'Teach YACC which LED sits under which fret.', focus: [] },
   { kind: 'bluetooth', title: 'Bluetooth', prompt: 'Go wireless?', focus: [] },
   { kind: 'tilt', title: 'Tilt switch', prompt: 'Use a tilt switch as a star power shortcut?', focus: ['tilt'] },
   { kind: 'review', title: 'All done', prompt: 'Check everything, then save it to the controller.', focus: [] },
@@ -178,7 +184,10 @@ function buildUi() {
   stageViewer = makeViewer($('#stage'), true);
   $('#tuneStage').innerHTML = '';
   makeViewer($('#tuneStage'));
+  $('#lightsStage').innerHTML = '';
+  makeViewer($('#lightsStage'));
   buildTune();
+  buildLights();
   buildModes();
   renderStep();
 }
@@ -188,7 +197,10 @@ function progressHtml() {
 }
 
 function goStep(i) {
-  state.step = Math.max(0, Math.min(STEPS.length - 1, i));
+  const dir = i < state.step ? -1 : 1;
+  i = Math.max(0, Math.min(STEPS.length - 1, i));
+  while (STEPS[i].kind === 'ledmap' && !state.cfg.rgbEnabled && i > 0 && i < STEPS.length - 1) i += dir;   // nothing to map without RGB
+  state.step = i;
   renderStep();
 }
 
@@ -196,6 +208,7 @@ function renderStep() {
   if (!state.dev || !stageViewer) return;
   const step = STEPS[state.step];
   const card = $('#stepCard');
+  if (stepCtx.timer) { clearInterval(stepCtx.timer); state.dev?.ledTest(-1).catch(() => {}); }
   stepCtx = {};
   stageViewer.g.setFocus(step.focus);
   const head = `${progressHtml()}<div class="muted" style="font-size:13px;margin-bottom:4px">Step ${state.step + 1} of ${STEPS.length}</div>
@@ -242,6 +255,65 @@ function renderStep() {
     $('#wRedo').addEventListener('click', () => {
       state.cfg.whammyCh = PIN_NONE; pushCfg(); stepCtx.cal.reset(); stepCtx.done = false; renderStep();
     });
+  } else if (step.kind === 'rgb') {
+    const renderRgb = () => {
+      const c = state.cfg;
+      const used = new Set(assignedPins());
+      const free = [...Array(NUM_DIGITAL_PINS).keys()].filter((p) => !used.has(p) || p === c.rgbPin);
+      card.innerHTML = head + `
+        <div class="opt"><div><h3>RGB lighting</h3><span class="muted">Five individually addressable WS2812 LEDs on a single data wire, one per fret.</span></div>
+          <label class="switch"><input type="checkbox" id="rgbSw" ${c.rgbEnabled ? 'checked' : ''}><i></i></label></div>
+        ${c.rgbEnabled ? `<div class="opt"><div><h3>Data pin</h3><span class="muted">The GPIO wired to the first LED's DIN.</span></div>
+            <select id="rgbPinSel"><option value="255">Choose pin…</option>${free.map((p) => `<option value="${p}" ${p === c.rgbPin ? 'selected' : ''}>GP${p}</option>`).join('')}</select></div>
+          <div class="slider-row"><label for="rgbBriS">Brightness</label><span class="val" id="rgbBriSVal">${c.rgbBrightness}</span>
+            <input type="range" id="rgbBriS" min="0" max="100" step="1" value="${c.rgbBrightness}"></div>
+          <div class="notice info" style="margin-top:10px">Limited to 100 (of 255) to keep the current draw low. Colours, effects and reactive modes live on the <b>Lights</b> tab.</div>` : ''}
+        ${nav(`<button class="btn small primary" id="bSkip" ${c.rgbEnabled && c.rgbPin === PIN_NONE ? 'disabled' : ''}>${c.rgbEnabled ? 'Continue →' : 'No RGB — continue →'}</button>`)}`;
+      wireNav();
+      $('#rgbSw').addEventListener('change', (e) => { c.rgbEnabled = e.target.checked; applyColors(); pushCfg(); renderRgb(); });
+      $('#rgbPinSel')?.addEventListener('change', (e) => { c.rgbPin = +e.target.value; pushCfg(); renderRgb(); });
+      $('#rgbBriS')?.addEventListener('input', (e) => { c.rgbBrightness = +e.target.value; $('#rgbBriSVal').textContent = c.rgbBrightness; pushCfg(); });
+    };
+    renderRgb();
+  } else if (step.kind === 'ledmap') {
+    const c = state.cfg;
+    stepCtx.idx = 0;
+    stepCtx.assign = [-1, -1, -1, -1, -1];     // fret -> chain position
+    stepCtx.base = null;
+    stepCtx.lockUntil = 0;
+    const finish = () => {
+      // frets that were skipped take whatever positions are left, in order
+      const left = [0, 1, 2, 3, 4].filter((p) => !stepCtx.assign.includes(p));
+      c.ledMap = stepCtx.assign.map((p) => (p >= 0 ? p : left.shift()));
+      pushCfg();
+    };
+    const draw = () => {
+      if (stepCtx.idx >= NUM_LEDS) {
+        finish();
+        clearInterval(stepCtx.timer); stepCtx.timer = 0;
+        state.dev?.ledTest(-1).catch(() => {});
+        const order = c.ledMap.map((pos, f) => ({ pos, f })).sort((x, y) => x.pos - y.pos);
+        card.innerHTML = head + `<div class="result ok">✓ Mapped — LED order: ${order.map((o) => `<b style="color:${c.colors[o.f]}">${funcName(o.f)}</b>`).join(' → ')}</div>
+          ${nav('<button class="btn small" id="mRedo">Redo</button><button class="btn small primary" id="bSkip">Continue →</button>')}`;
+        wireNav();
+        $('#mRedo').addEventListener('click', () => renderStep());
+        return;
+      }
+      const dots = [...Array(NUM_LEDS).keys()].map((i) => {
+        const f = stepCtx.assign.indexOf(i);
+        return `<i class="${i === stepCtx.idx ? 'lit' : f >= 0 ? 'done' : ''}" style="--c:${f >= 0 ? c.colors[f] : '#fff'}"></i>`;
+      }).join('');
+      const noPins = c.pins.slice(0, NUM_FRETS).every((p) => p === PIN_NONE);
+      card.innerHTML = head + `<div class="led-test">${dots}</div>
+        <div class="result"><span class="pulse"></span><span>${noPins ? 'No fret buttons are assigned yet — go back and map them first.' : `LED ${stepCtx.idx + 1} of ${NUM_LEDS} is lit <b>white</b>. Press the fret button above it.`}</span></div>
+        ${nav('<button class="btn small" id="mSkipLed">Skip this LED</button>')}`;
+      wireNav();
+      $('#mSkipLed').addEventListener('click', () => { stepCtx.idx++; stepCtx.base = null; draw(); sendTest(); });
+    };
+    const sendTest = () => { if (stepCtx.idx < NUM_LEDS) state.dev?.ledTest(stepCtx.idx).catch(() => {}); };
+    stepCtx.redraw = () => { draw(); sendTest(); };
+    stepCtx.redraw();
+    stepCtx.timer = setInterval(sendTest, 1000);
   } else if (step.kind === 'bluetooth') {
     const sup = state.info.btSupported;
     const why = state.info.board === 4
@@ -277,6 +349,7 @@ function renderStep() {
     const rows = FUNCS.map((f, i) => `<tr><td>${funcName(i)}</td><td>${c.pins[i] === PIN_NONE ? '<span class="muted">not set</span>' : 'GP' + c.pins[i]}</td></tr>`).join('') +
       `<tr><td>Whammy</td><td>${c.whammyCh === PIN_NONE ? '<span class="muted">not set</span>' : 'GP' + (26 + c.whammyCh)}</td></tr>
        <tr><td>Tilt switch</td><td>${c.tiltEnabled && c.tiltPin !== PIN_NONE ? 'GP' + c.tiltPin : '<span class="muted">off</span>'}</td></tr>
+       <tr><td>RGB LEDs</td><td>${c.rgbEnabled && c.rgbPin !== PIN_NONE ? 'GP' + c.rgbPin + ' · ' + c.rgbBrightness + '%' : '<span class="muted">off</span>'}</td></tr>
        <tr><td>Bluetooth</td><td>${c.btEnabled ? 'on' : 'off'}</td></tr>`;
     card.innerHTML = head + `<table class="sum">${rows}</table>
       <div class="notice info" style="margin-top:14px">Try every input — the guitar on the left lights up as you press. Tune debounce and whammy feel on the <b>Tune</b> tab.</div>
@@ -341,6 +414,21 @@ function tickStep(s) {
       $('#wLabel').textContent = 'Live input — move the bar to check it';
       const b = $('#bSkip'); if (b) { b.textContent = 'Continue →'; b.classList.add('primary'); }
     }
+  } else if (step.kind === 'ledmap' && stepCtx.assign && stepCtx.idx < NUM_LEDS) {
+    if (!stepCtx.base) { stepCtx.base = s.counts.slice(); return; }
+    if (performance.now() < stepCtx.lockUntil) { stepCtx.base = s.counts.slice(); return; }
+    for (let f = 0; f < NUM_FRETS; f++) {
+      const pin = state.cfg.pins[f];
+      if (pin === PIN_NONE || stepCtx.assign[f] >= 0) continue;
+      if (diff8(s.counts[pin], stepCtx.base[pin]) >= 1) {
+        stepCtx.assign[f] = stepCtx.idx;
+        stepCtx.idx++;
+        stepCtx.base = s.counts.slice();
+        stepCtx.lockUntil = performance.now() + 500;
+        stepCtx.redraw();
+        break;
+      }
+    }
   } else if (step.kind === 'tilt' && stepCtx.active && stepCtx.detector) {
     const r = stepCtx.detector.feed(s);
     if (!r) return;
@@ -393,6 +481,60 @@ function buildTune() {
     await state.dev.defaults(); await state.dev.save(); await sleep(300);
     state.cfg = await state.dev.getConfig(); state.step = 0; buildUi(); toast('Reset to defaults', 'ok');
   };
+  refresh();
+}
+
+// ------------------------------------------------------------------ lights
+function applyColors() {
+  const cols = state.cfg.rgbEnabled ? state.cfg.colors : FRET_DEFAULT_COLORS;
+  for (const v of viewers) v.g.setFretColors(cols);
+}
+
+function updateLedPreview(s) {
+  const c = state.cfg;
+  if (!c) return;
+  document.querySelectorAll('#mapView .led').forEach((el) => {
+    const f = +el.dataset.fret;
+    el.classList.toggle('on', isPressed(s, c.pins[f]));
+  });
+}
+
+function buildLights() {
+  const c = state.cfg;
+  const $on = $('#rgbOn'), $pin = $('#rgbPin'), $bri = $('#rgbBri'), $spd = $('#fxSpeed');
+  const used = new Set(assignedPins());
+  $pin.innerHTML = '<option value="255">Choose pin…</option>' +
+    [...Array(NUM_DIGITAL_PINS).keys()].filter((p) => !used.has(p) || p === c.rgbPin).map((p) => `<option value="${p}">GP${p}</option>`).join('');
+  $('#fxList').innerHTML = EFFECTS.map((e) => `<label><input type="radio" name="fx" value="${e.id}"><div><b>${e.name}</b><br><span class="muted">${e.desc}</span></div></label>`).join('');
+  $('#presets').innerHTML = RGB_PRESETS.map((p, i) => `<button class="preset" data-preset="${i}">${p.colors.map((x) => `<i style="background:${x}"></i>`).join('')}<span>${p.name}</span></button>`).join('');
+  $('#colRows').innerHTML = [0, 1, 2, 3, 4].map((f) => `<div class="col-row"><span><span class="fretdot" style="background:${FRET_DEFAULT_COLORS[f]}"></span>${funcName(f)} fret</span>
+      <input type="color" data-col="${f}"><span class="hex" data-hex="${f}"></span></div>`).join('');
+
+  const refresh = () => {
+    $on.checked = c.rgbEnabled;
+    $pin.value = String(c.rgbPin);
+    $bri.value = c.rgbBrightness; $('#rgbBriVal').textContent = c.rgbBrightness + ' / 100';
+    $('#rgbFlash').checked = c.rgbBootFlash;
+    $spd.value = c.rgbSpeed; $('#fxSpeedVal').textContent = c.rgbSpeed;
+    document.querySelectorAll('input[name=fx]').forEach((r) => { r.checked = +r.value === c.rgbEffect; });
+    document.querySelectorAll('[data-col]').forEach((i) => { i.value = c.colors[+i.dataset.col]; $(`[data-hex="${i.dataset.col}"]`).textContent = c.colors[+i.dataset.col].toUpperCase(); });
+    for (const id of ['#rgbOpts', '#fxCard', '#colCard', '#mapCard']) $(id).classList.toggle('rgb-disabled', !c.rgbEnabled);
+    const pos = [0, 1, 2, 3, 4].map((p) => c.ledMap.findIndex((m) => m === p));
+    $('#mapView').innerHTML = pos.map((f, p) => f < 0 ? '' : `${p ? '<span class="arrow">→</span>' : ''}<div class="led" data-fret="${f}" style="--c:${c.colors[f]}"><b style="background:${c.colors[f]}"></b>LED ${p + 1}<br>${funcName(f)}</div>`).join('');
+    applyColors();
+  };
+  const live = () => { refresh(); $('#lightsState').textContent = 'Live changes — not saved yet.'; pushCfg(); };
+
+  $on.onchange = () => { c.rgbEnabled = $on.checked; live(); };
+  $pin.onchange = () => { c.rgbPin = +$pin.value; live(); };
+  $bri.oninput = () => { c.rgbBrightness = +$bri.value; live(); };
+  $('#rgbFlash').onchange = (e) => { c.rgbBootFlash = e.target.checked; live(); };
+  $spd.oninput = () => { c.rgbSpeed = +$spd.value; live(); };
+  $('#fxList').onchange = (e) => { c.rgbEffect = +e.target.value; live(); };
+  $('#colRows').oninput = (e) => { const f = e.target.dataset.col; if (f !== undefined) { c.colors[+f] = e.target.value; live(); } };
+  $('#presets').onclick = (e) => { const b = e.target.closest('[data-preset]'); if (b) { c.colors = RGB_PRESETS[+b.dataset.preset].colors.slice(); live(); } };
+  $('#mapWizard').onclick = () => { showView('setup'); goStep(STEPS.findIndex((s) => s.kind === 'ledmap')); };
+  $('#saveLights').onclick = async () => { await saveToController(); $('#lightsState').textContent = 'Saved to the controller.'; };
   refresh();
 }
 

@@ -172,3 +172,24 @@ table.sum td:last-child { text-align: right; font-family: ui-monospace, monospac
 .toast.bad { border-color: rgba(255,107,122,.5); }
 .toast.ok { border-color: rgba(61,220,151,.5); }
 footer { text-align: center; color: var(--muted); font-size: 13px; padding: 30px 20px 50px; }
+
+/* ---------- lights ---------- */
+select { background: var(--surface2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; }
+.col-row { display: grid; grid-template-columns: 1fr 52px auto; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.col-row:last-child { border-bottom: 0; }
+.col-row input[type=color] { width: 52px; height: 34px; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: none; cursor: pointer; }
+.col-row .hex { font: 600 12px ui-monospace, monospace; color: var(--muted); }
+.preset { display: inline-flex; gap: 3px; align-items: center; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface2); color: var(--text); cursor: pointer; font: 600 12px Inter, system-ui, sans-serif; }
+.preset:hover { border-color: var(--accent); }
+.preset i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.preset span { margin-left: 6px; }
+.ledmap { display: flex; gap: 4px; align-items: flex-end; flex-wrap: nowrap; }
+.ledmap .led { text-align: center; font: 600 11px Inter, system-ui, sans-serif; color: var(--muted); }
+.ledmap .led b { display: block; width: 34px; height: 34px; border-radius: 50%; margin: 0 auto 6px; border: 2px solid rgba(255,255,255,.15); transition: opacity .08s, box-shadow .08s; opacity: .55; }
+.ledmap .led.on b { opacity: 1; box-shadow: 0 0 16px var(--c); }
+.ledmap .arrow { align-self: center; color: var(--muted); }
+.rgb-disabled { opacity: .45; pointer-events: none; }
+.led-test { display: flex; gap: 10px; margin: 6px 0 14px; }
+.led-test i { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); background: var(--bg); transition: .1s; }
+.led-test i.lit { background: #fff; box-shadow: 0 0 18px #fff; border-color: #fff; }
+.led-test i.done { background: var(--c); border-color: var(--c); }

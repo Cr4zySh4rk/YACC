@@ -30,6 +30,8 @@
 #define VREQ_REBOOT   0x36   // OUT : wValue 0 = reboot, 1 = BOOTSEL
 #define VREQ_SETMODE  0x37   // OUT : wValue = mode to store (applies after reboot)
 
+#define VREQ_LEDTEST  0x38   // OUT : wValue = chain position to light white, 0xFFFF = back to normal
+
 #define XINPUT_REPORT_LEN 20
 #define PS3_REPORT_LEN    27
 #define HID_REPORT_LEN    7

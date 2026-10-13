@@ -52,6 +52,7 @@ export class YaccDevice extends EventTarget {
   async setConfig(cfg) { await this._out(VREQ.SETCFG, 0, serializeConfig(cfg)); }
   async save() { await this._out(VREQ.SAVE); }
   async defaults() { await this._out(VREQ.DEFAULTS); }
+  async ledTest(i) { await this._out(VREQ.LEDTEST, i < 0 ? 0xffff : i); }
   async reboot(bootsel = false) { await this._out(VREQ.REBOOT, bootsel ? 1 : 0); }
 
   // Continuous status polling; dispatches 'status' events and 'lost' if the device vanishes

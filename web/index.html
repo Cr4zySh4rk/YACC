@@ -17,6 +17,7 @@
       <button data-view="flash" class="active">Flash</button>
       <button data-view="setup">Setup</button>
       <button data-view="tune">Tune</button>
+      <button data-view="lights">Lights</button>
       <button data-view="modes">Modes</button>
     </nav>
     <span class="pill" id="connPill"><span class="dot"></span><span id="connText">Not connected</span></span>
@@ -114,6 +115,54 @@
         <div class="row" style="justify-content:space-between">
           <div class="muted" id="tuneState">Live changes — not saved yet.</div>
           <div class="row"><button class="btn danger" id="resetCfg">Reset all</button><button class="btn primary" id="saveTune">Save to controller</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LIGHTS ================= -->
+  <section class="view" id="view-lights">
+    <h1>Lights</h1>
+    <p class="lead">Five WS2812 (NeoPixel) LEDs on one data pin, one under each fret. Everything here applies live.</p>
+    <div id="lightsGate" class="card" style="text-align:center;padding:40px">Connect a controller first.</div>
+    <div class="grid two" id="lightsMain" style="display:none">
+      <div class="card stage" style="grid-column:1/-1"><div id="lightsStage"></div></div>
+      <div class="card">
+        <h2>RGB lighting</h2>
+        <div class="opt"><div><h3>Enable RGB LEDs</h3><span class="muted">Turn on if you wired a WS2812 chain to the controller.</span></div>
+          <label class="switch"><input type="checkbox" id="rgbOn"><i></i></label></div>
+        <div id="rgbOpts">
+          <div class="opt"><div><h3>Data pin</h3><span class="muted">The GPIO connected to the first LED's DIN.</span></div>
+            <select id="rgbPin"></select></div>
+          <div class="slider-row"><label for="rgbBri">Brightness</label><span class="val" id="rgbBriVal"></span>
+            <input type="range" id="rgbBri" min="0" max="100" step="1"></div>
+          <div class="muted" style="font-size:13px">Capped at 100 (of 255) so five LEDs never pull much power.</div>
+          <div class="opt"><div><h3>Show the mode on plug-in</h3><span class="muted">Flashes the fret LED that selects the running mode (green = XInput, blue = PS3, yellow = HID by default) for one second.</span></div>
+            <label class="switch"><input type="checkbox" id="rgbFlash"><i></i></label></div>
+        </div>
+      </div>
+      <div class="card" id="fxCard">
+        <h2>Effect</h2>
+        <div class="radio-cards" id="fxList"></div>
+        <div class="slider-row"><label for="fxSpeed">Effect speed</label><span class="val" id="fxSpeedVal"></span>
+          <input type="range" id="fxSpeed" min="1" max="10" step="1"></div>
+      </div>
+      <div class="card" id="colCard">
+        <h2>Fret colours</h2>
+        <div id="colRows"></div>
+        <div class="muted" style="margin:14px 0 8px;font-size:13px">Presets</div>
+        <div class="row" id="presets" style="flex-wrap:wrap"></div>
+      </div>
+      <div class="card" id="mapCard">
+        <h2>LED order</h2>
+        <p class="muted">Which LED in the chain sits under which fret. If the colours land on the wrong buttons, run the wizard.</p>
+        <div id="mapView" class="ledmap"></div>
+        <div class="row" style="margin-top:14px"><button class="btn primary" id="mapWizard">Remap LEDs with the wizard</button></div>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <div class="row" style="justify-content:space-between">
+          <div class="muted" id="lightsState">Live changes — not saved yet.</div>
+          <div class="row"><button class="btn primary" id="saveLights">Save to controller</button></div>
         </div>
       </div>
     </div>

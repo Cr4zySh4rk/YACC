@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 set(YACC_VERSION_MAJOR 0)
-set(YACC_VERSION_MINOR 2)
+set(YACC_VERSION_MINOR 3)
 
 # Board ids reported to the web app
 if(PICO_BOARD STREQUAL "pico")
@@ -37,7 +37,10 @@ add_executable(yacc
   src/config.c
   src/input.c
   src/bt.c
+  src/rgb.c
 )
+
+pico_generate_pio_header(yacc ${CMAKE_CURRENT_LIST_DIR}/src/ws2812.pio)
 
 target_include_directories(yacc PRIVATE src)
 
@@ -56,6 +59,8 @@ target_link_libraries(yacc
   hardware_flash
   hardware_sync
   hardware_watchdog
+  hardware_pio
+  hardware_clocks
   tinyusb_device
 )
 

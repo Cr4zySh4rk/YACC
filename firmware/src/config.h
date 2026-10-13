@@ -39,6 +39,8 @@ enum {
 #define CFG_FLAG_BT_ENABLED     (1u << 0)
 #define CFG_FLAG_TILT_ENABLED   (1u << 1)
 #define CFG_FLAG_COMBINED_STRUM (1u << 2)   // strum up/down share one debounce window
+#define CFG_FLAG_RGB_ENABLED    (1u << 3)   // WS2812 strip on rgb_pin
+#define CFG_FLAG_RGB_BOOTFLASH  (1u << 4)   // flash the mode's fret LED for 1 s after plug-in
 
 // Debounce behaviour (same three flavours Santroller offers)
 enum {
@@ -48,9 +50,22 @@ enum {
 };
 
 #define YACC_CFG_MAGIC   0x43434159u  // "YACC" little endian
-#define YACC_CFG_VERSION 2
+#define YACC_CFG_VERSION 3
 
-// 40 bytes on the wire and in flash. Keep in sync with web/js/protocol.js
+#define NUM_LEDS 5
+// What the fret LEDs do
+enum {
+    EFX_STATIC = 0,   // always full colour
+    EFX_DIM,          // full colour, dims while the fret is held
+    EFX_OFF,          // full colour, goes dark while the fret is held
+    EFX_BRIGHT,       // dim colour, lights up while the fret is held
+    EFX_FADE,         // dim colour, flashes on press and fades back out
+    EFX_BREATHE,      // breathing idle, full on press
+    EFX_RAINBOW,      // rainbow idle, fret colour on press
+    NUM_EFX
+};
+
+// 64 bytes on the wire and in flash. Keep in sync with web/js/protocol.js
 typedef struct __attribute__((packed)) {
     uint32_t magic;               // 0
     uint8_t  version;             // 4
@@ -67,11 +82,17 @@ typedef struct __attribute__((packed)) {
     uint8_t  whammy_smooth;       // 26      0 (off) .. 6 (heavy)
     uint8_t  whammy_deadzone;     // 27      percent of range
     uint8_t  boot_modes[NUM_FRETS]; // 28..32 mode to switch to when this fret is held at plug-in
-    uint8_t  reserved[3];         // 33..35
-    uint32_t crc;                 // 36      crc32 of bytes 0..35
+    uint8_t  rgb_pin;             // 33      data GPIO of the WS2812 chain or PIN_NONE
+    uint8_t  rgb_brightness;      // 34      0..100 (scaled to at most 100/255 of full power)
+    uint8_t  rgb_effect;          // 35      EFX_*
+    uint8_t  rgb_speed;           // 36      1..10
+    uint8_t  led_map[NUM_FRETS];  // 37..41  position in the chain of each fret's LED
+    uint8_t  colors[NUM_FRETS][3];// 42..56  R,G,B of each fret
+    uint8_t  reserved[3];         // 57..59
+    uint32_t crc;                 // 60      crc32 of bytes 0..59
 } yacc_config_t;
 
-_Static_assert(sizeof(yacc_config_t) == 40, "config size");
+_Static_assert(sizeof(yacc_config_t) == 64, "config size");
 
 extern yacc_config_t g_cfg;
 

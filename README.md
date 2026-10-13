@@ -14,9 +14,11 @@ Flash the board, plug it in, and the web app walks you through mapping every but
 3. **Guided setup** – for every control YACC asks you to press it twice within a second, watches which GPIO changed, and assigns it:
    green → red → yellow → blue → orange → strum up → strum down → star power → plus.
 4. **Whammy** – move the bar through two full sweeps; YACC finds the analog pin, calibrates min/max, detects direction and shows a live meter.
-5. **Add-ons** – Bluetooth toggle (Pico W / Pico 2 W only) and an optional tilt switch (tilt up twice within 5 s to register it as a star-power shortcut).
-6. **Tune** – debounce time/mode, combined-strum debounce, whammy smoothing and dead-zone, all live.
-7. **Modes** – choose what the controller pretends to be.
+5. **RGB** – say whether you wired 5 WS2812 LEDs, give the data pin, and teach YACC which LED sits under which fret by pressing the frets.
+6. **Add-ons** – Bluetooth toggle (Pico W / Pico 2 W only) and an optional tilt switch (a plain digital switch such as a mercury ball switch; tilt up twice within 5 s to register it as a star-power shortcut).
+7. **Tune** – debounce time/mode, combined-strum debounce, whammy smoothing and dead-zone, all live.
+8. **Lights** – optional WS2812 RGB LEDs under the frets (colours, reactive effects, brightness, LED order).
+9. **Modes** – choose what the controller pretends to be.
 
 ## USB modes
 
@@ -35,6 +37,15 @@ The mode picked by holding a fret is remembered (like GP2040-CE). Every fret →
 * Buttons: any of **GP0–GP22**, switched to **GND** (internal pull-ups are enabled).
 * Whammy potentiometer: **GP26, GP27 or GP28** (ADC0–2), wiper to the pin, ends to 3V3 and GND.
 * Tilt switch: any of GP0–GP22 to GND.
+
+## RGB lighting (WS2812)
+
+* Five individually addressable WS2812/NeoPixel LEDs on **one data pin** (any of GP0–GP22 not used by a button), driven by a PIO state machine.
+* **Brightness 0–100** (of 255) – deliberately capped so the strip never pulls much current.
+* Per-fret **colours** with presets, and an **LED order wizard**: each LED lights white in turn and you press the fret above it.
+* **Effects**: static, dim on press, off on press, brighten on press, flash & fade, breathing, rainbow (speed adjustable).
+* **Mode indicator**: after plug-in the fret LED that selects the running mode (green = XInput, blue = PS3, yellow = HID by default) flashes for one second.
+* The LEDs work in every USB mode, including PS3 where the web config is unavailable (set them up beforehand).
 
 ## Debounce
 
@@ -95,7 +106,7 @@ python3 -m http.server -d web 8000   # then open http://localhost:8000 in Chrome
 ## Protocol (for hackers)
 
 Configuration travels over WebUSB vendor control transfers on interface 1 (WinUSB via MS OS 2.0 descriptors):
-`0x30` info · `0x31` live status (GPIO levels, ADCs, debounced press counters) · `0x32/0x33` get/set config (40 bytes, CRC32) · `0x34` save · `0x35` defaults · `0x36` reboot/bootloader.
+`0x30` info · `0x31` live status (GPIO levels, ADCs, debounced press counters) · `0x32/0x33` get/set config (64 bytes, CRC32) · `0x34` save · `0x35` defaults · `0x36` reboot/bootloader · `0x37` set mode · `0x38` light one LED (wizard).
 See `firmware/src/config.h`, `firmware/src/usb_common.h` and `web/js/protocol.js`.
 
 ## Credits & license

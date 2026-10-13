@@ -2,6 +2,7 @@
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "hardware/adc.h"
+#include "rgb.h"
 
 // ---- detection grade pin state (fixed debounce, used for pin discovery) ----
 #define DETECT_DEBOUNCE_US 3000
@@ -86,6 +87,7 @@ void input_poll(void) {
 
     // detection grade
     for (int p = 0; p < NUM_DIGITAL_PINS; p++) {
+        if (rgb_active_pin(p)) { level[p] = 1; differing[p] = false; continue; }   // LED data line, not a button
         uint8_t raw = (all >> p) & 1;
         if (raw != level[p]) {
             if (!differing[p]) { differing[p] = true; since[p] = now; }
@@ -112,7 +114,9 @@ void input_poll(void) {
             !slot[F_STRUM_UP].out && !slot[F_STRUM_DOWN].out) {
             raw = false;                       // a new strum can't start inside the window
         }
-        deb_step(&slot[s], raw, now, win, mode);
+        // a mercury ball switch chatters a lot while it rolls: never debounce it for less than 15 ms
+        uint32_t w = (s == SLOT_TILT && win < 15000u) ? 15000u : win;
+        deb_step(&slot[s], raw, now, w, s == SLOT_TILT ? DEB_RELEASE : mode);
     }
     if (combined && (slot[F_STRUM_UP].out != up_prev || slot[F_STRUM_DOWN].out != down_prev)) {
         strum_lock_until = now + win;
