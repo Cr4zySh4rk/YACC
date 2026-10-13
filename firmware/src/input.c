@@ -126,6 +126,10 @@ void input_poll(void) {
         uint8_t sh = g_cfg.whammy_smooth;
         for (int c = 0; c < NUM_ADC_CH; c++) {
             adc_select_input(c);
+            // The sample capacitor still holds the previous channel's charge: without throw-away
+            // conversions an unconnected (floating) pin just mirrors its neighbour, which made
+            // the whammy appear on several channels at once.
+            (void)adc_read(); (void)adc_read();
             uint32_t sum = 0;
             for (int i = 0; i < 4; i++) sum += adc_read();
             int32_t target = (int32_t)(sum / 4) << 4;

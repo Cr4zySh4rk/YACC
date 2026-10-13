@@ -146,6 +146,11 @@ table.sum td:last-child { text-align: right; font-family: ui-monospace, monospac
 .needle { transition: transform .15s ease-out; }
 .part.on .needle line { filter: drop-shadow(0 0 3px #38e1c6); }
 
+.adc-row { display: grid; grid-template-columns: 52px 1fr 40px auto; gap: 10px; align-items: center; margin-bottom: 6px; opacity: .7; }
+.adc-row.sel { opacity: 1; }
+.adc-row .val { font: 600 12px ui-monospace, monospace; color: var(--muted); text-align: right; }
+.adc-row .bar { height: 8px; }
+
 /* ---------- tune ---------- */
 .slider-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .slider-row:last-child { border-bottom: 0; }

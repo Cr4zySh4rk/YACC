@@ -229,9 +229,16 @@ function renderStep() {
         : '<span class="pulse"></span><span>Waiting for the bar to move…</span>'}</div>
       <div class="muted" style="font-size:13px;margin-bottom:6px" id="wLabel">${have ? 'Live input' : 'Sweeps detected: 0 / 2'}</div>
       <div class="bar"><i id="wBar" style="width:0"></i></div>
+      <div class="adcs"><div class="muted" style="font-size:12px;margin:14px 0 6px">Raw analog inputs — the bar you move should swing one of these. Wrong one picked? Press <b>Use</b> on the right pin.</div>
+        ${[0, 1, 2].map((c) => `<div class="adc-row" data-ch="${c}"><span class="chip">GP${26 + c}</span><div class="bar"><i></i></div><span class="val">0</span><button class="btn small" data-use="${c}">Use</button></div>`).join('')}</div>
       ${nav(`<button class="btn small" id="wRedo">Recalibrate</button><button class="btn small ${have ? 'primary' : ''}" id="bSkip">${have ? 'Continue →' : 'Skip'}</button>`)}`;
     wireNav();
     stepCtx.done = have;
+    document.querySelectorAll('[data-use]').forEach((b) => b.addEventListener('click', () => {
+      stepCtx.cal.select(+b.dataset.use);
+      stepCtx.done = false;
+      setResult('', `<span class="pulse"></span><span>Using <span class="chip">GP${26 + +b.dataset.use}</span> — move the bar through two full sweeps.</span>`);
+    }));
     $('#wRedo').addEventListener('click', () => {
       state.cfg.whammyCh = PIN_NONE; pushCfg(); stepCtx.cal.reset(); stepCtx.done = false; renderStep();
     });
@@ -311,6 +318,12 @@ function tickStep(s) {
     }
   } else if (step.kind === 'whammy' && stepCtx.cal) {
     const c = state.cfg;
+    document.querySelectorAll('.adc-row').forEach((row) => {
+      const v = s.adc[+row.dataset.ch];
+      row.querySelector('i').style.width = ((v / 4095) * 100).toFixed(1) + '%';
+      row.querySelector('.val').textContent = v;
+      row.classList.toggle('sel', (stepCtx.done ? c.whammyCh : stepCtx.cal.ch) === +row.dataset.ch);
+    });
     if (stepCtx.done) {
       const el = $('#wBar');
       if (el && c.whammyCh !== PIN_NONE) el.style.width = (whammyValue(s.adc[c.whammyCh], c) * 100).toFixed(1) + '%';

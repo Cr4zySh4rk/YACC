@@ -61,4 +61,24 @@ const mk = (t, over = {}) => { const counts = Array(23).fill(0); for (const [p, 
   assert.ok(last.done);
   assert.equal(w.result().invert, true);
 }
+// a floating neighbour that mirrors the whammy (ADC cross-talk) must not break the calibration
+{
+  const w = new WhammyCalibrator();
+  let t = 0, last, k = 0;
+  const noise = () => ((k++ * 7919) % 41) - 20;
+  const sweep = (from, to) => { for (let i = 0; i <= 20; i++) { const v = from + ((to - from) * i) / 20; last = w.feed({ t: (t += 20), adc: [v + noise(), v + noise() * 3, 50] }); } };
+  for (let i = 0; i < 25; i++) w.feed({ t: (t += 20), adc: [500, 500, 50] });
+  sweep(500, 3000); sweep(3000, 500); sweep(500, 3000); sweep(3000, 500);
+  assert.ok(last.done, JSON.stringify(last));
+  assert.ok(w.result().max - w.result().min > 2000);
+}
+// small-range sensor (about 0.6 V swing) still calibrates
+{
+  const w = new WhammyCalibrator();
+  let t = 0, last;
+  const sweep = (from, to) => { for (let i = 0; i <= 20; i++) last = w.feed({ t: (t += 20), adc: [100, 1500 + ((to - from) * i) / 20 + from - 1500, 100] }); };
+  for (let i = 0; i < 25; i++) w.feed({ t: (t += 20), adc: [100, 1500, 100] });
+  sweep(1500, 2000); sweep(2000, 1500); sweep(1500, 2000); sweep(2000, 1500);
+  assert.ok(last.done, JSON.stringify(last));
+}
 console.log('detect tests passed');

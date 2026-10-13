@@ -41,9 +41,13 @@ export class PinDetector {
  * Whammy calibration: watches the 3 ADC channels, finds the one that swings the most and
  * counts how many times it travelled between its low and high zone.
  * Two full sweeps (rest -> far -> rest -> far -> rest) = 4 zone changes.
+ *
+ * Every channel keeps its own zone/switch counter so noise on an unused (floating) pin can never
+ * reset the progress of the real one, and the "winning" channel only changes when another one
+ * clearly out-swings it.
  */
 export class WhammyCalibrator {
-  constructor({ minRange = 700, neededSwitches = 4 } = {}) {
+  constructor({ minRange = 400, neededSwitches = 4 } = {}) {
     this.minRange = minRange;
     this.needed = neededSwitches;
     this.reset();
@@ -54,54 +58,65 @@ export class WhammyCalibrator {
     this.max = [-Infinity, -Infinity, -Infinity];
     this.first = null;
     this.restSamples = [[], [], []];
+    this.zones = [null, null, null];
+    this.switchesBy = [0, 0, 0];
     this.ch = -1;
-    this.zone = null;
-    this.switches = 0;
+    this.locked = false;
     this.n = 0;
+    this.last = [0, 0, 0];
   }
+
+  get switches() { return this.ch >= 0 ? this.switchesBy[this.ch] : 0; }
+
+  get ranges() { return [0, 1, 2].map((c) => (this.max[c] > this.min[c] ? this.max[c] - this.min[c] : 0)); }
 
   feed(sample) {
     const a = sample.adc;
     if (!this.first) this.first = sample.t;
     this.n++;
+    this.last = a.slice(0, 3);
     for (let c = 0; c < 3; c++) {
       this.min[c] = Math.min(this.min[c], a[c]);
       this.max[c] = Math.max(this.max[c], a[c]);
       if (sample.t - this.first < 400) this.restSamples[c].push(a[c]);
     }
-    // the channel with the biggest swing is the whammy
-    let best = -1, bestRange = 0;
+    const ranges = this.ranges;
     for (let c = 0; c < 3; c++) {
-      const r = this.max[c] - this.min[c];
-      if (r > bestRange) { bestRange = r; best = c; }
+      const lo = this.min[c], hi = this.max[c], r = ranges[c];
+      if (r < this.minRange) continue;
+      if (this.zones[c] === null && this.restSamples[c].length) {
+        // the starting zone is wherever the bar rested before it started moving
+        const rest = this.restSamples[c].reduce((x, y) => x + y, 0) / this.restSamples[c].length;
+        this.zones[c] = rest - lo < hi - rest ? 'low' : 'high';
+      }
+      let z = null;
+      if (a[c] <= lo + r * 0.25) z = 'low';
+      else if (a[c] >= hi - r * 0.25) z = 'high';
+      if (z && z !== this.zones[c]) {
+        if (this.zones[c] !== null) this.switchesBy[c]++;
+        this.zones[c] = z;
+      }
     }
-    if (best < 0 || bestRange < this.minRange) return this.progress(0);
-    if (best !== this.ch) { this.ch = best; this.zone = null; this.switches = 0; }
-
-    const lo = this.min[best], hi = this.max[best], r = hi - lo;
-    const v = a[best];
-    if (this.zone === null && this.restSamples[best].length) {
-      // the starting zone is wherever the bar rested before it started moving
-      const rest = this.restSamples[best].reduce((x, y) => x + y, 0) / this.restSamples[best].length;
-      this.zone = rest - lo < hi - rest ? 'low' : 'high';
+    // the channel with the biggest swing is the whammy (sticky: needs to win by 25 % to take over)
+    let best = -1, bestRange = 0;
+    for (let c = 0; c < 3; c++) if (ranges[c] > bestRange) { bestRange = ranges[c]; best = c; }
+    if (!this.locked && best >= 0 && bestRange >= this.minRange) {
+      if (this.ch < 0 || (best !== this.ch && bestRange > ranges[this.ch] * 1.25)) this.ch = best;
     }
-    let z = null;
-    if (v <= lo + r * 0.25) z = 'low';
-    else if (v >= hi - r * 0.25) z = 'high';
-    if (z && z !== this.zone) {
-      if (this.zone !== null) this.switches++;
-      this.zone = z;
-    }
-    return this.progress(bestRange);
+    return this.progress(this.ch >= 0 ? ranges[this.ch] : 0);
   }
 
   progress(range) {
+    const sw = this.switches;
     return {
-      channel: this.ch, range, switches: this.switches,
-      fraction: Math.min(1, this.switches / this.needed),
-      done: this.ch >= 0 && this.switches >= this.needed,
+      channel: this.ch, range, switches: sw, ranges: this.ranges, raw: this.last,
+      fraction: Math.min(1, sw / this.needed),
+      done: this.ch >= 0 && sw >= this.needed,
     };
   }
+
+  /** Force a channel (manual pick): the calibration then only watches that one. */
+  select(c) { this.ch = c; this.locked = true; this.switchesBy[c] = 0; this.zones[c] = null; this.min[c] = Infinity; this.max[c] = -Infinity; this.restSamples[c] = []; this.first = null; }
 
   result() {
     const c = this.ch;
