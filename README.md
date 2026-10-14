@@ -9,6 +9,14 @@ Flash the board, plug it in, and the web app walks you through mapping every but
 
 > Requires a Chromium-based browser (Chrome, Edge, Brave, …) for WebUSB. Downloading firmware works in any browser.
 
+## Demo
+
+<p align="center">
+  <a href="https://cr4zysh4rk.github.io/YAGCC/demo/yagcc-demo.mp4"><img src="assets/demo/demo-preview.gif" alt="Guided setup: each fret is pressed twice and YAGCC assigns its pin" width="800"></a>
+</p>
+
+**[▶ Watch the full walkthrough (5 min, with voice-over and subtitles)](https://cr4zysh4rk.github.io/YAGCC/demo/yagcc-demo.mp4)**: flashing, guided setup, whammy calibration, LED mapping, tuning, lights, modes and the compatibility tables. No real guitar was used; a simulated controller feeds the configurator the same data the firmware sends.
+
 ## How it works
 
 1. **Flash** – download the *flash nuke* (wipes the old firmware and settings) and the YAGCC firmware for your board, or let the page write them straight to the `RPI-RP2` drive.
@@ -106,6 +114,7 @@ firmware/   pico-sdk + TinyUSB firmware (XInput, PS3 GH/RB, HID, keyboard, Switc
 web/        static web app (no build step) – deployed as-is
 tests/      unit tests for pin and whammy detection
 .github/    CI: builds all firmware variants and deploys the site to GitHub Pages
+assets/     logo and demo media
 vercel.json Vercel configuration (serves web/)
 ```
 
