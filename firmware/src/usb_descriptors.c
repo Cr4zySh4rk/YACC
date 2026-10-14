@@ -6,7 +6,7 @@
 
 uint8_t g_usb_mode = MODE_XINPUT;
 
-bool mode_has_config(uint8_t mode) { return mode != MODE_PS3_GH; }
+bool mode_has_config(uint8_t mode) { return !IS_PS3_MODE(mode); }
 
 // ================================================================ HID report descriptors
 // PS3 Guitar Hero guitar: same report descriptor Santroller uses (27 byte input report).
@@ -91,7 +91,7 @@ static const uint8_t desc_hid_generic[] = {
 
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
     (void)instance;
-    return g_usb_mode == MODE_PS3_GH ? desc_hid_ps3_gh : desc_hid_generic;
+    return IS_PS3_MODE(g_usb_mode) ? desc_hid_ps3_gh : desc_hid_generic;   // RB and GH share the PS3 descriptor
 }
 
 // ================================================================ device descriptor
@@ -116,6 +116,10 @@ uint8_t const *tud_descriptor_device_cb(void) {
         case MODE_PS3_GH:
             desc_device.idVendor = REDOCTANE_VID;
             desc_device.idProduct = PS3_GH_GUITAR_PID;
+            break;
+        case MODE_PS3_RB:
+            desc_device.idVendor = REDOCTANE_VID;
+            desc_device.idProduct = PS3_RB_GUITAR_PID;
             break;
         case MODE_HID:
             desc_device.idProduct = 0x0002;
@@ -154,7 +158,7 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
         };
         memcpy(p, x, sizeof(x)); p += sizeof(x);
     } else {
-        uint16_t rlen = (g_usb_mode == MODE_PS3_GH) ? sizeof(desc_hid_ps3_gh) : sizeof(desc_hid_generic);
+        uint16_t rlen = IS_PS3_MODE(g_usb_mode) ? sizeof(desc_hid_ps3_gh) : sizeof(desc_hid_generic);
         const uint8_t h[] = {TUD_HID_INOUT_DESCRIPTOR(ITF_PAD, 0, HID_ITF_PROTOCOL_NONE, rlen, EP_PAD_OUT, EP_PAD_IN, 64, 1)};
         memcpy(p, h, sizeof(h)); p += sizeof(h);
     }
@@ -239,9 +243,10 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
         chr_count = 1;
     } else {
         switch (index) {
-            case STR_MANUF:   s = (g_usb_mode == MODE_PS3_GH) ? "RedOctane" : "YAGCC"; break;
+            case STR_MANUF:   s = g_usb_mode == MODE_PS3_GH ? "RedOctane" : g_usb_mode == MODE_PS3_RB ? "Harmonix" : "YAGCC"; break;
             case STR_PRODUCT:
                 s = g_usb_mode == MODE_PS3_GH ? "Guitar Hero3 for PlayStation (R) 3"
+                  : g_usb_mode == MODE_PS3_RB ? "Harmonix Guitar for PlayStation(R)3"
                   : g_usb_mode == MODE_HID    ? "YAGCC Guitar (HID)"
                                               : "YAGCC Guitar Controller";
                 break;

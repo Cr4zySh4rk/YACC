@@ -61,7 +61,7 @@ void rgb_boot_indicator(uint8_t mode) {
     boot_t0 = time_us_32();
     boot_fret = -1;
     for (int f = 0; f < NUM_FRETS; f++) if (g_cfg.boot_modes[f] == mode) { boot_fret = f; break; }
-    if (boot_fret < 0) boot_fret = (mode == MODE_PS3_GH) ? F_BLUE : (mode == MODE_HID) ? F_YELLOW : F_GREEN;
+    if (boot_fret < 0) boot_fret = (mode == MODE_PS3_GH) ? F_BLUE : (mode == MODE_PS3_RB) ? F_RED : (mode == MODE_HID) ? F_YELLOW : F_GREEN;
 }
 
 void rgb_test_led(int led) {

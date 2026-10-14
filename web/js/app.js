@@ -645,7 +645,7 @@ async function directFlash(url, name) {
 // ------------------------------------------------------------------ controllers running in PS3 / HID mode
 // PS3 mode must look exactly like a real PS3 guitar, so it has no WebUSB config interface; HID mode has one
 // but the browser asks for permission separately for each mode. WebHID lets us find both and help out.
-const HID_FILTERS = [{ vendorId: 0x12ba, productId: 0x0100 }, { vendorId: 0x1209, productId: 0x0002 }];
+const HID_FILTERS = [{ vendorId: 0x12ba, productId: 0x0100 }, { vendorId: 0x12ba, productId: 0x0200 }, { vendorId: 0x1209, productId: 0x0002 }];
 const isOurHid = (d) => HID_FILTERS.some((f) => f.vendorId === d.vendorId && f.productId === d.productId);
 
 async function restartToSetup(dev) {
@@ -682,7 +682,7 @@ function showOtherMode(dev) {
   if (!dev || state.dev) { box.innerHTML = ''; return; }
   if (dev.vendorId === 0x12ba) {
     box.innerHTML = `<div class="notice info" style="text-align:left">
-        <b>Found your controller in PS3 Guitar Hero mode.</b> That mode has no configuration channel, because it has to look exactly like a real PS3 guitar.
+        <b>Found your controller in ${dev.productId === 0x0200 ? 'PS3 Rock Band' : 'PS3 Guitar Hero'} mode.</b> That mode has no configuration channel, because it has to look exactly like a real PS3 guitar.
         <div class="row" style="margin-top:10px"><button class="btn primary small" id="toSetup">Restart it in setup mode</button>
         <span class="muted" style="font-size:12px">or unplug it and hold <b>Plus</b> while plugging it back in</span></div></div>`;
     $('#toSetup').onclick = () => restartToSetup(dev);

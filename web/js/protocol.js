@@ -20,6 +20,7 @@ export const MODE_NONE = 0xff;
 export const MODES = [
   { id: 0, name: 'XInput', short: 'XInput', desc: 'Xbox 360 guitar. Plug-and-play on Windows (Clone Hero, YARG, Fortnite Festival). macOS has no XInput driver — use HID mode on a Mac.' },
   { id: 1, name: 'PS3 Guitar Hero', short: 'PS3', desc: 'Identifies as a RedOctane PS3 Guitar Hero guitar (0x12BA:0x0100). No web config in this mode — the Setup page can restart it in setup mode.' },
+  { id: 3, name: 'PS3 Rock Band', short: 'PS3 RB', desc: 'Identifies as a PS3 Rock Band guitar (0x12BA:0x0200), the same identity Santroller uses. Tilt is sent as Rock Band tilt, star power as overdrive (select). Works with Rock Band on PS3 and RPCS3, and with Clone Hero / YARG. No web config in this mode — the Setup page can restart it in setup mode.' },
   { id: 2, name: 'HID Gamepad', short: 'HID', desc: 'Generic HID gamepad for macOS, Linux, Android and emulators. Configurable here too (the browser asks for permission once for this mode).' },
 ];
 
@@ -74,7 +75,8 @@ export function defaultConfig() {
     btEnabled: false, tiltEnabled: false, combinedStrum: true,
     usbMode: 0, debounceMode: 0, debounce100us: 50,
     whammySmooth: 2, whammyDeadzone: 3,
-    bootModes: [0, MODE_NONE, 2, 1, MODE_NONE],
+    bootModes: [0, 3, 2, 1, MODE_NONE],
+    cfgRev: 1,
     rgbEnabled: false, rgbBootFlash: true, rgbPin: PIN_NONE, rgbBrightness: 40, rgbEffect: 3, rgbSpeed: 5,
     ledMap: [0, 1, 2, 3, 4], colors: FRET_DEFAULT_COLORS.slice(),
   };
@@ -99,6 +101,7 @@ export function parseConfig(dv) {
     usbMode: dv.getUint8(22), debounceMode: dv.getUint8(23), debounce100us: dv.getUint16(24, true),
     whammySmooth: dv.getUint8(26), whammyDeadzone: dv.getUint8(27),
     bootModes,
+    cfgRev: dv.getUint8(57),
     rgbEnabled: !!(flags & 8), rgbBootFlash: !!(flags & 16),
     rgbPin: dv.getUint8(33), rgbBrightness: dv.getUint8(34), rgbEffect: dv.getUint8(35), rgbSpeed: dv.getUint8(36),
     ledMap: [0, 1, 2, 3, 4].map((i) => dv.getUint8(37 + i)),
@@ -130,6 +133,7 @@ export function serializeConfig(c) {
   dv.setUint8(36, Math.max(1, Math.min(10, c.rgbSpeed)));
   c.ledMap.forEach((m, i) => dv.setUint8(37 + i, m));
   c.colors.forEach((col, i) => { const [r, g, b] = hexToRgb(col); dv.setUint8(42 + i * 3, r); dv.setUint8(43 + i * 3, g); dv.setUint8(44 + i * 3, b); });
+  dv.setUint8(57, c.cfgRev ?? 1);
   dv.setUint32(60, crc32(new Uint8Array(buf, 0, 60)), true);
   return buf;
 }

@@ -142,8 +142,8 @@ static const uint8_t ps3_init_report[8] = {0x21, 0x26, 0x01, 0x06, 0x00, 0x00, 0
 uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type,
                                uint8_t *buffer, uint16_t reqlen) {
     (void)instance;
-    if (g_usb_mode == MODE_PS3_GH && report_type == HID_REPORT_TYPE_FEATURE && report_id == 0) {
-        // the PS3 handshake: byte 3 = 0x06 identifies a guitar
+    if (IS_PS3_MODE(g_usb_mode) && report_type == HID_REPORT_TYPE_FEATURE && report_id == 0) {
+        // the PS3 handshake: byte 3 = 0x06 identifies a guitar (GH and RB alike)
         uint16_t n = reqlen < sizeof(ps3_init_report) ? reqlen : sizeof(ps3_init_report);
         memcpy(buffer, ps3_init_report, n);
         return n;

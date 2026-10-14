@@ -79,7 +79,7 @@
       <h2>No controller connected</h2>
       <p class="muted">Plug in a Pico running YAGCC firmware and connect it to start the guided setup.</p>
       <button class="btn primary" id="connectBtn2">Connect controller</button>
-      <p class="muted" style="font-size:13px;margin-top:14px">Controller plugged in as a <b>PS3 guitar</b> or <b>HID gamepad</b>? <a href="#" id="findHid">Find it</a> — a PS3-mode controller is restarted in setup mode for you.</p>
+      <p class="muted" style="font-size:13px;margin-top:14px">Controller plugged in as a <b>PS3 guitar</b> (Guitar Hero or Rock Band) or <b>HID gamepad</b>? <a href="#" id="findHid">Find it</a> — a PS3-mode controller is restarted in setup mode for you.</p>
       <div id="otherMode" style="margin:14px auto 0;max-width:560px"></div>
     </div>
     <div class="setup" id="setupMain" style="display:none">
@@ -176,13 +176,13 @@
     <p class="lead">YAGCC can present itself to the host in different ways. Hold a fret while plugging in to switch, or set the default here.</p>
     <div id="modesGate" class="card" style="text-align:center;padding:40px">Connect a controller first.</div>
     <div id="modesMain" style="display:none">
-      <div class="grid three" id="modeCards"></div>
+      <div class="grid" id="modeCards" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr))"></div>
       <div class="card" style="margin-top:18px">
         <h2>Hold at plug-in</h2>
         <p class="muted">Pick which mode each fret selects when held while the controller is plugged in. The chosen mode is remembered.</p>
         <div class="grid three" id="bootTable"></div>
         <div class="notice info" style="margin-top:16px">
-          <b>Always available:</b> hold <b>Plus</b> while plugging in for setup mode (XInput + this page, nothing saved). Hold <b>Star power + Plus + Strum up</b> to jump straight to the firmware-update bootloader.
+          <b>Always available:</b> hold <b>Plus</b> while plugging in for setup mode (XInput + this page, nothing saved). Hold <b>Star power + Plus</b> to jump straight to the firmware-update bootloader.
         </div>
       </div>
       <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn primary" id="saveModes">Save &amp; restart controller</button></div>

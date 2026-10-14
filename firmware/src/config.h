@@ -25,6 +25,7 @@ enum {
     MODE_XINPUT = 0,   // Xbox 360 guitar (XInput) + WebUSB config
     MODE_PS3_GH = 1,   // PlayStation 3 Guitar Hero guitar (HID)
     MODE_HID    = 2,   // Generic HID gamepad + WebUSB config
+    MODE_PS3_RB = 3,   // PlayStation 3 Rock Band guitar (HID), same identity Santroller uses
     NUM_MODES
 };
 #define MODE_NONE 0xFF
@@ -88,7 +89,8 @@ typedef struct __attribute__((packed)) {
     uint8_t  rgb_speed;           // 36      1..10
     uint8_t  led_map[NUM_FRETS];  // 37..41  position in the chain of each fret's LED
     uint8_t  colors[NUM_FRETS][3];// 42..56  R,G,B of each fret
-    uint8_t  reserved[3];         // 57..59
+    uint8_t  cfg_rev;             // 57      bumped by in-place migrations (see config_load)
+    uint8_t  reserved[2];         // 58..59
     uint32_t crc;                 // 60      crc32 of bytes 0..59
 } yacc_config_t;
 

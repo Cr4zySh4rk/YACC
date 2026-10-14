@@ -9,6 +9,8 @@
 
 yacc_config_t g_cfg;
 
+#define CFG_REV 1
+
 #define CFG_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
 
 static uint32_t crc32(const uint8_t *d, size_t n) {
@@ -59,11 +61,12 @@ void config_defaults(yacc_config_t *c) {
     c->whammy_smooth = 2;
     c->whammy_deadzone = 3;
     c->boot_modes[F_GREEN]  = MODE_XINPUT;
-    c->boot_modes[F_RED]    = MODE_NONE;
+    c->boot_modes[F_RED]    = MODE_PS3_RB;
     c->boot_modes[F_YELLOW] = MODE_HID;
     c->boot_modes[F_BLUE]   = MODE_PS3_GH;
     c->boot_modes[F_ORANGE] = MODE_NONE;
     c->flags |= CFG_FLAG_RGB_BOOTFLASH | CFG_FLAG_COMBINED_STRUM;
+    c->cfg_rev = CFG_REV;
     c->rgb_pin = PIN_NONE;
     c->rgb_brightness = 40;
     c->rgb_effect = EFX_BRIGHT;
@@ -80,6 +83,12 @@ void config_load(void) {
     memcpy(&tmp, flash, sizeof(tmp));
     if (config_validate(&tmp)) {
         g_cfg = tmp;
+        // rev 1: Rock Band mode was added on the red fret; give it to configs that left red unassigned
+        if (g_cfg.cfg_rev < 1) {
+            if (g_cfg.boot_modes[F_RED] == MODE_NONE) g_cfg.boot_modes[F_RED] = MODE_PS3_RB;
+            g_cfg.cfg_rev = 1;
+            config_seal(&g_cfg);
+        }
     } else {
         config_defaults(&g_cfg);
     }

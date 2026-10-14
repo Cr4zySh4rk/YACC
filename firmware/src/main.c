@@ -124,6 +124,7 @@ typedef struct {
     bool green, red, yellow, blue, orange;
     bool strum_up, strum_down;
     bool star, plus;
+    bool tilt;          // tilt switch alone (also folded into `star` for most modes)
     int16_t whammy;     // 0..32767
 } pad_t;
 
@@ -137,8 +138,8 @@ static void read_pad(pad_t *s) {
     s->strum_down = input_func(F_STRUM_DOWN);
     s->plus = input_func(F_PLUS);
     s->star = input_func(F_STAR);
-    if ((g_cfg.flags & CFG_FLAG_TILT_ENABLED) && g_cfg.tilt_pin != PIN_NONE && input_tilt())
-        s->star = true;
+    s->tilt = (g_cfg.flags & CFG_FLAG_TILT_ENABLED) && g_cfg.tilt_pin != PIN_NONE && input_tilt();
+    if (s->tilt) s->star = true;
     s->whammy = input_whammy();
 }
 
@@ -197,6 +198,38 @@ static uint16_t build_ps3(const pad_t *s, uint8_t *out) {
     return PS3_REPORT_LEN;
 }
 
+// ---- PS3 Rock Band guitar, 27 byte report (Santroller's PS3RockBandGuitar_Data_t layout)
+// byte 0: blue, green, red, yellow, orange, tilt(R1), solo(L2), -   byte 1: select, start
+// byte 2: hat (strum), 3/4: sticks, 5: whammy (0 = rest), 6: pickup selector, accel words centred.
+static uint16_t build_ps3_rb(const pad_t *s, uint8_t *out) {
+    memset(out, 0, PS3_REPORT_LEN);
+    uint8_t b0 = 0, b1 = 0;
+    if (s->blue)   b0 |= 0x01;
+    if (s->green)  b0 |= 0x02;
+    if (s->red)    b0 |= 0x04;
+    if (s->yellow) b0 |= 0x08;
+    if (s->orange) b0 |= 0x10;
+    if (s->tilt)   b0 |= 0x20;    // Rock Band reads tilt as R1
+    // overdrive: the star button is select; with no separate tilt reading it also tilts (star = select)
+    if (s->star) b1 |= 0x01;      // select
+    if (s->plus) b1 |= 0x02;      // start
+    out[0] = b0;
+    out[1] = b1;
+    uint8_t hat = 0x08;
+    if (s->strum_up && !s->strum_down) hat = 0x00;
+    else if (s->strum_down && !s->strum_up) hat = 0x04;
+    out[2] = hat;
+    out[3] = 0x80;
+    out[4] = 0x80;
+    out[5] = (uint8_t)(s->whammy >> 7);
+    out[6] = 0x00;                // pickup selector position
+    for (int i = 0; i < 4; i++) {
+        out[19 + 2 * i] = 0x00;
+        out[20 + 2 * i] = 0x02;   // 0x0200
+    }
+    return PS3_REPORT_LEN;
+}
+
 // ---- generic HID gamepad, 7 byte report
 static uint16_t build_hid(const pad_t *s, uint8_t *out) {
     uint16_t b = 0;
@@ -242,8 +275,8 @@ static uint8_t pick_mode(void) {
         return MODE_XINPUT;
     }
     watchdog_hw->scratch[0] = 0;
-    // star power + plus + strum up at plug-in -> straight to the UF2 bootloader
-    if (boot_pressed(F_STAR) && boot_pressed(F_PLUS) && boot_pressed(F_STRUM_UP)) {
+    // star power + plus at plug-in -> straight to the UF2 bootloader
+    if (boot_pressed(F_STAR) && boot_pressed(F_PLUS)) {
         reset_usb_boot(0, 0);
     }
     // plus alone -> setup mode for this boot (XInput + web config), nothing is saved
@@ -321,6 +354,7 @@ int main(void) {
         uint16_t len;
         switch (g_usb_mode) {
             case MODE_PS3_GH: len = build_ps3(&st, rpt); break;
+            case MODE_PS3_RB: len = build_ps3_rb(&st, rpt); break;
             case MODE_HID:    len = build_hid(&st, rpt); break;
             default:          len = build_xinput(&st, rpt); break;
         }

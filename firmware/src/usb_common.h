@@ -10,6 +10,8 @@
 // Real-world identity used for the PS3 Guitar Hero guitar personality
 #define REDOCTANE_VID    0x12BA
 #define PS3_GH_GUITAR_PID 0x0100
+#define PS3_RB_GUITAR_PID 0x0200   // Rock Band guitar (Santroller uses the same VID/PID)
+#define IS_PS3_MODE(m) ((m) == MODE_PS3_GH || (m) == MODE_PS3_RB)
 
 #define ITF_PAD    0      // XInput or HID interface
 #define ITF_CONFIG 1      // WebUSB configuration interface (modes that have one)
