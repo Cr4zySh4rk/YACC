@@ -29,8 +29,8 @@ Flash the board, plug it in, and the web app walks you through mapping every but
 | Red | **PS3 Rock Band** | Rock Band guitar `12BA:0200` (Santroller report layout: tilt → R1, star power → select) | Rock Band on PS3 / RPCS3, YARG |
 | Yellow | **HID gamepad** | Generic gamepad (16 buttons, hat, 4 axes) | macOS, Linux, Android, emulators |
 | Blue | **PS3 Guitar Hero** | RedOctane `12BA:0100` with the PS3 guitar handshake | Guitar Hero on PS3 / RPCS3, Clone Hero |
-| Orange | **Fortnite Festival (keyboard)** | USB keyboard with the Fortnite Festival *Pro guitar* default keys (frets 1–5, strum Right Shift / Right Ctrl, star power PageDown, plus Esc) | Fortnite Festival on **PS4, PS5, Xbox One/Series and PC**: consoles accept a keyboard with no authentication |
-| *(assign on Modes tab)* | **Switch** | HORI Pokkén pad `0F0D:0092` | Fortnite Festival on Switch, Switch games |
+| Orange | **Nintendo Switch** | HORI Pokkén pad `0F0D:0092`: green A, red B, yellow Y, blue X, orange L, tilt R, star − , plus +, strum on the D-pad, whammy on the right stick | Fortnite Festival on Switch, other Switch games |
+| *(assign on Modes tab)* | **Fortnite Festival (keyboard)** | USB keyboard with the Fortnite Festival *Pro guitar* default keys (frets 1–5, strum Right Shift / Right Ctrl, star power PageDown, plus Esc) | Fortnite Festival on **PS4, PS5, Xbox One/Series and PC**: consoles accept a keyboard with no authentication |
 | *(assign on Modes tab)* | **Wii Rock Band** | Harmonix Wii guitar `1BAD:0004` | Rock Band on Wii / Dolphin |
 | *(assign on Modes tab)* | **OG Xbox** | Original Xbox controller (XID) | Guitar Hero II / III on original Xbox *(experimental)* |
 | Plus | **Setup mode** | XInput + web config for this boot only, nothing saved | |
@@ -38,7 +38,7 @@ Flash the board, plug it in, and the web app walks you through mapping every but
 
 The mode picked by holding a fret is remembered (like GP2040-CE), and every fret → mode assignment can be changed on the **Modes** tab.
 
-**Fortnite Festival.** Hold **orange** while plugging in. In Fortnite turn on *Pro* input for guitar and choose the keyboard layout that matches the bindings shown on the Modes tab (Pro guitar is the default; a Lead-lane preset — D F J K L, arrows, Space — is one click away, and every key is rebindable). On PC you can also use XInput mode with *Star power → D-pad left* switched on.
+**Fortnite Festival.** On a Switch, hold **orange** while plugging in (Switch mode). On PS4, PS5, Xbox and PC, assign keyboard mode to a fret on the Modes tab and hold that fret while plugging in; in Fortnite turn on *Pro* input for guitar and choose the keyboard layout that matches the bindings shown on the Modes tab (Pro guitar is the default; a Lead-lane preset — D F J K L, arrows, Space — is one click away, and every key is rebindable). On PC you can also use XInput mode with *Star power → D-pad left* switched on.
 
 **XInput options.** The guitar can report as a *Guitar Hero* (subtype 7) or *Rock Band* (subtype 6) guitar. Whammy sits on right stick X and tilt on right stick Y, both resting at the bottom like real guitars. When a game sends star power / overdrive state over the rumble channel, the fret LEDs can glow cyan (*Star power glow* on the Lights tab).
 
@@ -62,7 +62,7 @@ See the **Compatibility** page in the web app for a game-by-game / console-by-co
 * **Brightness 0–255** – full range; five LEDs at full white draw up to ~300 mA from USB.
 * Per-fret **colours** with presets (gamma-corrected on the LEDs, so the red and orange you pick on screen come out red and orange, not pink and peach), and an **LED order wizard**: each LED lights white in turn and you press the fret above it.
 * **Effects**: static, dim on press, off on press, brighten on press, flash & fade, breathing, rainbow (speed adjustable).
-* **Mode indicator**: after plug-in the fret LED that selects the running mode (green = XInput, red = PS3 Rock Band, yellow = HID, blue = PS3 Guitar Hero, orange = Fortnite Festival by default) flashes for one second.
+* **Mode indicator**: after plug-in the fret LED that selects the running mode (green = XInput, red = PS3 Rock Band, yellow = HID, blue = PS3 Guitar Hero, orange = Switch by default) flashes for one second.
 * **Star power glow**: in XInput mode, games that report star power (Clone Hero, YARG, Guitar Hero via the rumble channel) make the idle frets pulse cyan.
 * The LEDs work in every USB mode, including the PS3 modes where the web config is unavailable (set them up beforehand).
 

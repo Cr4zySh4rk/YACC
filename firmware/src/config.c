@@ -9,7 +9,7 @@
 
 yacc_config_t g_cfg;
 
-#define CFG_REV 2
+#define CFG_REV 3
 
 #define CFG_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
 
@@ -75,7 +75,7 @@ void config_defaults(yacc_config_t *c) {
     c->boot_modes[F_RED]    = MODE_PS3_RB;
     c->boot_modes[F_YELLOW] = MODE_HID;
     c->boot_modes[F_BLUE]   = MODE_PS3_GH;
-    c->boot_modes[F_ORANGE] = MODE_KEYBOARD;
+    c->boot_modes[F_ORANGE] = MODE_SWITCH;
     c->flags |= CFG_FLAG_RGB_BOOTFLASH | CFG_FLAG_COMBINED_STRUM | CFG_FLAG_RGB_STARPOWER;
     c->cfg_rev = CFG_REV;
     c->rgb_pin = PIN_NONE;
@@ -118,6 +118,13 @@ void config_load(void) {
         if (g_cfg.cfg_rev < 2) {
             if (g_cfg.boot_modes[F_ORANGE] == MODE_NONE) g_cfg.boot_modes[F_ORANGE] = MODE_KEYBOARD;
             g_cfg.cfg_rev = 2;
+            config_seal(&g_cfg);
+        }
+        // rev 3: the orange fret's default moved from keyboard to Nintendo Switch mode
+        if (g_cfg.cfg_rev < 3) {
+            if (g_cfg.boot_modes[F_ORANGE] == MODE_KEYBOARD || g_cfg.boot_modes[F_ORANGE] == MODE_NONE)
+                g_cfg.boot_modes[F_ORANGE] = MODE_SWITCH;
+            g_cfg.cfg_rev = 3;
             config_seal(&g_cfg);
         }
     } else {

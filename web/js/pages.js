@@ -25,7 +25,7 @@ export const COMPAT = [
     notes: 'The console\'s security check (XSM3) is answered by the firmware, using the same library Santroller ships. Not yet confirmed on a real 360 with YAGCC.' },
   { group: 'xbox', console: 'Xbox One / Series X|S', game: 'Fortnite Festival (Pro Lead / Pro Bass)',
     mode: 'Keyboard (Fortnite Festival bindings)', how: 'Direct USB', status: 'noauth',
-    notes: 'Keyboards don\'t need authentication. Hold orange while plugging in.' },
+    notes: 'Keyboards don\'t need authentication. Assign keyboard mode to a fret on the Modes page.' },
   { group: 'xbox', console: 'Xbox One / Series X|S', game: 'Rock Band 4 and other games',
     mode: 'Xbox One instrument', how: 'Needs an auth controller on a USB host port or a harvested auth chip', status: 'planned', notes: '' },
   { group: 'xbox', console: 'Original Xbox', game: 'All original Xbox games',
@@ -36,12 +36,12 @@ export const COMPAT = [
   { group: 'ps', console: 'PlayStation 2', game: 'Guitar Hero 1 & 2, Guitar Hero III / Aerosmith (older games)', mode: 'PS3 Guitar Hero + PADEMU', how: 'USB, game launched from Open PS2 Loader with PADEMU on', status: 'setup',
     notes: 'PADEMU (DualShock3/4 USB mode) turns the PS3 guitar into a PS2 controller. A wired PS2 controller-port output is planned.' },
   { group: 'ps', console: 'PlayStation 4 / 5', game: 'Rock Band 4', mode: 'PS3 Rock Band', how: 'Direct USB', status: 'legacy', notes: 'Rock Band 4 accepts PS3 Rock Band guitars as legacy instruments, so no authentication is needed.' },
-  { group: 'ps', console: 'PlayStation 4 / 5', game: 'Fortnite Festival (Pro Lead / Pro Bass)', mode: 'Keyboard (Fortnite Festival bindings)', how: 'Direct USB', status: 'noauth', notes: 'Hold orange while plugging in.' },
+  { group: 'ps', console: 'PlayStation 4 / 5', game: 'Fortnite Festival (Pro Lead / Pro Bass)', mode: 'Keyboard (Fortnite Festival bindings)', how: 'Direct USB', status: 'noauth', notes: 'Assign keyboard mode to a fret on the Modes page.' },
   { group: 'ps', console: 'PlayStation 4 / 5', game: 'Other PS4 / PS5 games', mode: 'PS4 / PS5 instrument', how: 'Needs a DualShock 4 / auth dongle on a USB host port', status: 'planned', notes: '' },
   { group: 'nin', console: 'Wii / Wii U', game: 'Rock Band 1, 2, 3, The Beatles: Rock Band', mode: 'Wii Rock Band', how: 'Direct USB', status: 'plug', notes: 'Set "Hold at plug-in" for a fret to Wii Rock Band on the Modes page.' },
   { group: 'nin', console: 'Wii / Wii U', game: 'Guitar Hero, Band Hero', mode: 'Wii Remote emulation', how: 'Bluetooth (genuine Pico W, or a USB Bluetooth dongle)', status: 'planned',
     notes: 'Clone "Pico W" boards with an ESP8285 have no Bluetooth.' },
-  { group: 'nin', console: 'Nintendo Switch', game: 'Fortnite Festival and every other game', mode: 'Nintendo Switch (HORIPAD)', how: 'Direct USB', status: 'plug', notes: 'Frets map to A / B / X / Y / L, strum to the D-pad.' },
+  { group: 'nin', console: 'Nintendo Switch', game: 'Fortnite Festival and every other game', mode: 'Nintendo Switch (HORIPAD)', how: 'Direct USB', status: 'plug', notes: 'Hold orange while plugging in. Green A, red B, yellow Y, blue X, orange L, tilt R, star minus, strum on the D-pad, whammy on the right stick.' },
 ];
 
 export const COMPAT_GROUPS = [

@@ -117,8 +117,8 @@ export function defaultConfig() {
     btEnabled: false, tiltEnabled: false, combinedStrum: true,
     usbMode: 0, debounceMode: 0, debounce100us: 50,
     whammySmooth: 2, whammyDeadzone: 3,
-    bootModes: [0, 3, 2, 1, 4],
-    cfgRev: 2,
+    bootModes: [0, 3, 2, 1, 5],
+    cfgRev: 3,
     xinputType: 0, starDpadLeft: false, rgbStarPower: true,
     ledType: 0, ledOrder: 0, ledClkPin: PIN_NONE, keys: [0x1e, 0x1f, 0x20, 0x21, 0x22, 0xe5, 0xe4, 0x4e, 0x29, 0x4e, 0x38],
     rgbEnabled: false, rgbBootFlash: true, rgbPin: PIN_NONE, rgbBrightness: 40, rgbEffect: 3, rgbSpeed: 5,
@@ -179,7 +179,7 @@ export function serializeConfig(c) {
   dv.setUint8(36, Math.max(1, Math.min(10, c.rgbSpeed)));
   c.ledMap.forEach((m, i) => dv.setUint8(37 + i, m));
   c.colors.forEach((col, i) => { const [r, g, b] = hexToRgb(col); dv.setUint8(42 + i * 3, r); dv.setUint8(43 + i * 3, g); dv.setUint8(44 + i * 3, b); });
-  dv.setUint8(57, c.cfgRev ?? 2);
+  dv.setUint8(57, c.cfgRev ?? 3);
   dv.setUint8(58, c.xinputType ?? 0);
   dv.setUint8(59, c.ledType ?? 0);
   dv.setUint8(60, c.ledOrder ?? 0);
