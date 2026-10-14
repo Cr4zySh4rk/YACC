@@ -7,6 +7,7 @@ import { YaccDevice, webusbSupported } from './usb.js?v=dev';
 import { PinDetector, WhammyCalibrator } from './detect.js?v=dev';
 import { createGuitar } from './guitar.js?v=dev';
 import { renderHardware, renderCompat } from './pages.js?v=dev';
+import { SECTIONS, makeBackup, backupFileName, readBackup, applyBackup, download } from './backup.js?v=dev';
 
 const $ = (s, r = document) => r.querySelector(s);
 const diff8 = (x, y) => (x - y + 256) & 0xff;
@@ -16,6 +17,7 @@ const MODE_USE = {   // one line per mode: where you'd use it
   0: 'Windows, Xbox 360, Clone Hero, YARG', 3: 'Rock Band on PS3, RPCS3, Rock Band 4 on PS4 / PS5', 1: 'Guitar Hero on PS3, PS2, RPCS3',
   2: 'macOS, Linux, Android, emulators', 4: 'Fortnite Festival on PlayStation, Xbox, PC', 5: 'Nintendo Switch, Fortnite Festival',
   6: 'Rock Band on Wii and Wii U', 7: 'Original Xbox (needs an adapter cable)',
+  8: 'Rock Band 4 on PS4 / PS5 (needs a controller on the host port)', 9: 'Rock Band 4 on Xbox One / Series (needs a controller on the host port)',
 };
 
 const store = {
@@ -49,7 +51,8 @@ function showView(v) {
 $('#nav').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) showView(b.dataset.view); });
 
 const funcName = (i) => FUNC_LABEL[FUNCS[i]];
-const assignedPins = () => [...state.cfg.pins, state.cfg.tiltPin].filter((p) => p !== PIN_NONE);
+const hostPins = (c = state.cfg) => (c.hostPin !== undefined && c.hostPin !== PIN_NONE ? [c.hostPin, c.hostPin + 1] : []);
+const assignedPins = () => [...state.cfg.pins, state.cfg.tiltPin, ...hostPins()].filter((p) => p !== PIN_NONE);
 const isConfigured = (cfg) => cfg.pins.some((p) => p !== PIN_NONE);
 
 let pushTimer = 0;
@@ -201,6 +204,7 @@ function buildUi() {
   $('#lightsStage').innerHTML = '';
   makeViewer($('#lightsStage'));
   buildTune();
+  buildBackup();
   buildLights();
   buildModes();
   renderStep();
@@ -546,6 +550,47 @@ function buildTune() {
   refresh();
 }
 
+// ------------------------------------------------------------------ backup & restore
+function buildBackup() {
+  const box = $('#bkRestore');
+  box.innerHTML = '';
+  $('#bkSave').onclick = () => {
+    download(backupFileName(state.info), JSON.stringify(makeBackup(state.cfg, state.info), null, 2));
+    toast('Backup downloaded', 'ok');
+  };
+  const pickLabel = document.querySelector('label[for=bkFile]');
+  pickLabel.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#bkFile').click(); } };
+  $('#bkFile').onchange = async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    let parsed;
+    try { parsed = readBackup(await file.text()); } catch (err) { toast(err.message, 'bad'); return; }
+    const when = parsed.meta.created ? new Date(parsed.meta.created).toLocaleString() : 'unknown date';
+    box.innerHTML = `<p class="bk-meta">${file.name}: made ${when}${parsed.meta.board ? ` on a ${parsed.meta.board}` : ''}${parsed.meta.firmware ? `, firmware <b>v${parsed.meta.firmware}</b>` : ''}. Choose what to restore.</p>
+      <div class="choice-list" id="bkSections">${SECTIONS.map((sec) => {
+        const has = !!parsed.sections[sec.id];
+        return `<label class="${has ? '' : 'off'}"><input type="checkbox" value="${sec.id}" ${has ? 'checked' : 'disabled'}><div><b>${sec.name}</b><span class="dim">${has ? sec.desc : 'Not in this backup'}</span></div></label>`;
+      }).join('')}</div>
+      ${parsed.skipped.length ? `<p class="dim small">Some values were not valid and will be left as they are: ${parsed.skipped.join(', ')}.</p>` : ''}
+      <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn quiet" id="bkCancel">Cancel</button><button class="btn primary" id="bkApply">Restore and save</button></div>`;
+    $('#bkCancel').onclick = () => { box.innerHTML = ''; };
+    $('#bkApply').onclick = async () => {
+      const chosen = [...box.querySelectorAll('#bkSections input:checked')].map((i) => i.value);
+      if (!chosen.length) { toast('Pick at least one section to restore.'); return; }
+      try {
+        state.cfg = applyBackup(state.cfg, parsed, chosen);
+        await state.dev.setConfig(state.cfg);
+        await state.dev.save();
+        await sleep(400);
+        state.cfg = await state.dev.getConfig();
+        buildUi();
+        toast(`Restored ${chosen.length === SECTIONS.length ? 'all settings' : chosen.map((id) => SECTIONS.find((x) => x.id === id).name.toLowerCase()).join(', ')} and saved to the controller`, 'ok');
+      } catch (err) { toast('Restore failed: ' + err.message, 'bad'); }
+    };
+  };
+}
+
 // ------------------------------------------------------------------ lights
 function applyColors() {
   const cols = state.cfg.rgbEnabled ? state.cfg.colors : FRET_DEFAULT_COLORS;
@@ -618,8 +663,9 @@ function buildModes() {
   const c = state.cfg;
   const running = state.info.mode;
   $('#modeCards').innerHTML = MODES.map((m) => `<div class="mode-row ${c.usbMode === m.id ? 'sel' : ''}" data-mode="${m.id}" role="radio" tabindex="0" aria-checked="${c.usbMode === m.id}" title="${m.desc.replace(/"/g, '&quot;')}">
-      <span class="radio"></span><div><b>${m.name}</b><div class="dim">${MODE_USE[m.id] || ''}</div></div>
+      <span class="radio"></span><div><b>${m.name.replace(/ \(experimental\)$/, '')}</b>${m.host ? ' <span class="tag exp">Experimental</span>' : ''}<div class="dim">${MODE_USE[m.id] || ''}</div></div>
       ${running === m.id ? '<span class="tag live">Running</span>' : '<span></span>'}</div>`).join('');
+  buildHostPort();
   const pick = (row) => { c.usbMode = +row.dataset.mode; buildModes(); $(`#modeCards [data-mode="${c.usbMode}"]`)?.focus(); };
   $('#modeCards').onclick = (e) => { const row = e.target.closest('.mode-row'); if (row) pick(row); };
   $('#modeCards').onkeydown = (e) => { const row = e.target.closest('.mode-row'); if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(row); } };
@@ -627,7 +673,7 @@ function buildModes() {
     MODES.map((m) => `<option value="${m.id}" ${sel === m.id ? 'selected' : ''}>${m.name}</option>`).join('');
   $('#bootTable').innerHTML = [0, 1, 2, 3, 4].map((i) => `<div class="fret-row" style="--c:${FRET_COLORS[i]}"><span class="fret-key"></span><label for="boot${i}">${funcName(i)}</label>
       <select id="boot${i}" data-fret="${i}">${opts(c.bootModes[i])}</select></div>`).join('');
-  $('#bootTable').onchange = (e) => { c.bootModes[+e.target.dataset.fret] = +e.target.value; };
+  $('#bootTable').onchange = (e) => { c.bootModes[+e.target.dataset.fret] = +e.target.value; buildHostPort(); };
 
   // XInput flavour
   const XI = [{ id: 0, name: 'Guitar Hero guitar', desc: 'Like the Xbox 360 Les Paul and World Tour guitars.' },
@@ -655,6 +701,31 @@ function buildModes() {
       await state.dev.reboot(false);
     } catch (e) { toast('Failed: ' + e.message, 'bad'); }
   };
+}
+
+// USB host port for PS4 / Xbox One authentication passthrough
+function buildHostPort() {
+  const c = state.cfg;
+  if (c.hostPin === undefined) c.hostPin = PIN_NONE;
+  const own = new Set(hostPins());
+  const taken = new Set([...c.pins, c.tiltPin, c.rgbPin, c.ledClkPin].filter((p) => p !== PIN_NONE && !own.has(p)));
+  const free = [...Array(NUM_DIGITAL_PINS - 1).keys()].filter((p) => !taken.has(p) && !taken.has(p + 1));
+  const sel = $('#hostPin');
+  sel.innerHTML = '<option value="255">Off (no host port)</option>' +
+    free.map((p) => `<option value="${p}">D+ GP${p}, D− GP${p + 1}</option>`).join('');
+  sel.value = String(free.includes(c.hostPin) ? c.hostPin : PIN_NONE);
+  const show = () => {
+    const on = c.hostPin !== PIN_NONE;
+    $('#wDp').textContent = on ? 'GP' + c.hostPin : 'the pin you pick';
+    $('#wDm').textContent = on ? 'GP' + (c.hostPin + 1) : 'the next pin';
+    $('#hostPinNote').textContent = 'Two neighbouring free pins. They can\'t be used for buttons while the port is on.';
+    const needs = MODES.find((m) => m.id === c.usbMode)?.host || c.bootModes.some((id) => MODES.find((m) => m.id === id)?.host);
+    const w = $('#hostWarn');
+    w.hidden = !(needs && !on);
+    w.textContent = 'A PS4 / Xbox One mode is selected but the host port is off, so the console will reject the guitar.';
+  };
+  sel.onchange = () => { c.hostPin = +sel.value; show(); };
+  show();
 }
 
 // ------------------------------------------------------------------ flash page

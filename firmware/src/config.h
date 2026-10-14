@@ -30,6 +30,8 @@ enum {
     MODE_SWITCH = 5,   // Nintendo Switch (HORIPAD-compatible HID gamepad)
     MODE_WII_RB = 6,   // Wii Rock Band guitar (USB dongle identity, 1BAD:0004)
     MODE_OGXBOX = 7,   // Original Xbox controller (XID) - needs a USB-to-Xbox-port adapter
+    MODE_PS4    = 8,   // PS4 Rock Band 4-style guitar; console auth relayed to a DS4 / dongle on the USB host port
+    MODE_XBONE  = 9,   // Xbox One Rock Band 4-style guitar; auth relayed to an Xbox One/Series pad on the host port
     NUM_MODES
 };
 #define MODE_NONE 0xFF
@@ -112,7 +114,8 @@ typedef struct __attribute__((packed)) {
     uint8_t  led_order;           // 60      ORDER_* (WS2812 / SK6812)
     uint8_t  led_clk_pin;         // 61      APA102 clock GPIO or PIN_NONE
     uint8_t  keys[NUM_KEYS];      // 62..72  HID usage codes for keyboard mode (0 = none, 0xE0..E7 = modifiers)
-    uint8_t  reserved[19];        // 73..91
+    uint8_t  host_dp_pin;         // 73      USB host port D+ GPIO (D- is the next pin) or PIN_NONE
+    uint8_t  reserved[18];        // 74..91
     uint32_t crc;                 // 92      crc32 of bytes 0..91
 } yacc_config_t;
 

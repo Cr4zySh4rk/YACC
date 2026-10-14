@@ -129,6 +129,11 @@
             <label class="switch"><input type="checkbox" id="wInv"><i></i></label></div>
         </div>
       </div>
+      <div class="panel backup-panel">
+        <div class="opt first"><div><h2>Backup and restore</h2><p class="dim">Save every setting to a file, or load one back. Useful before reflashing, or to copy a setup to another guitar.</p></div>
+          <div class="row"><button class="btn" id="bkSave">Download backup</button><label class="btn" for="bkFile" tabindex="0">Restore from file</label><input type="file" id="bkFile" accept=".json,application/json" hidden></div></div>
+        <div id="bkRestore"></div>
+      </div>
       <div class="savebar">
         <span id="tuneState" class="dim">Live changes, not saved yet.</span>
         <div class="row"><button class="btn quiet danger" id="resetCfg">Reset everything</button><button class="btn primary" id="saveTune">Save to controller</button></div>
@@ -221,6 +226,32 @@
           <div class="keymap" id="keyMap"></div>
         </div>
       </div>
+      <div class="panel host-panel" id="hostPanel">
+        <h2>Console authentication <span class="tag exp">Experimental</span></h2>
+        <p class="dim">PS4 / PS5 and Xbox One / Series modes need a licensed controller plugged into a USB host port on the guitar. The console's security check is passed through to it, the same way GP2040-CE does it. Not yet tested on a console.</p>
+        <div class="host-grid">
+          <div>
+            <label class="field-label" for="hostPin">USB host port pins</label>
+            <select id="hostPin"></select>
+            <p class="dim small" id="hostPinNote"></p>
+            <p class="warn small" id="hostWarn" hidden></p>
+          </div>
+          <div>
+            <h3>Wiring a USB-A socket</h3>
+            <dl class="wiring">
+              <dt>D+ (green)</dt><dd id="wDp">the pin you pick</dd>
+              <dt>D− (white)</dt><dd id="wDm">the next pin</dd>
+              <dt>VBUS (red)</dt><dd>VBUS / 5 V on the board</dd>
+              <dt>GND (black)</dt><dd>any GND</dd>
+            </dl>
+            <h3>What to plug in</h3>
+            <ul class="dim small">
+              <li><b>PS4 / PS5:</b> a DualShock 4 (wired), or a USB PS4 authentication dongle.</li>
+              <li><b>Xbox One / Series:</b> a wired Xbox One / Series controller (Microsoft, PowerA), or a Mayflash / MagicBoots Xbox One adapter.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
       <div class="savebar">
         <span class="dim">Mode changes take effect after a restart.</span>
         <button class="btn primary" id="saveModes">Save and restart controller</button>
@@ -246,7 +277,7 @@
         <li><b>Fortnite Festival</b> in keyboard mode, since keyboards are never asked to authenticate. On Switch, use Switch mode (orange fret).</li>
         <li><b>Rock Band 4 on PS4 / PS5</b> in PS3 Rock Band mode (red fret). The game accepts PS3 guitars as legacy instruments.</li>
       </ul>
-      <p class="dim">Everything else on those consoles needs an authentication device on a USB host port, which is planned.</p>
+      <p class="dim">For anything else on those consoles, PS4 / PS5 and Xbox One / Series modes pass the check through to a licensed controller plugged into a USB host port on the guitar (set up on the Modes page). That is <b>experimental</b> and not yet tested on a console.</p>
     </div>
   </section>
 </main>

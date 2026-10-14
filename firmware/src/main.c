@@ -5,6 +5,7 @@
 #include "pico/bootrom.h"
 #include "hardware/watchdog.h"
 #include "hardware/structs/watchdog.h"
+#include "hardware/clocks.h"
 #include "tusb.h"
 
 #include "usb_common.h"
@@ -12,6 +13,8 @@
 #include "input.h"
 #include "bt.h"
 #include "rgb.h"
+#include "host/usb_host.h"
+#include "host/xbone.h"
 
 // ---------------------------------------------------------------- state shared with USB callbacks
 static yacc_config_t cfg_rx;
@@ -68,7 +71,11 @@ bool usb_vendor_request(uint8_t rhport, uint8_t stage, tusb_control_request_t co
 
     // OUT data stage finished: apply what we received
     if (stage == CONTROL_STAGE_ACK) {
-        if (req->bRequest == VREQ_SETCFG && config_validate(&cfg_rx)) g_cfg = cfg_rx;
+        if (req->bRequest == VREQ_SETCFG && config_validate(&cfg_rx)) {
+            g_cfg = cfg_rx;
+            // an older configurator leaves the host port byte at zero: keep the port off
+            if (g_cfg.cfg_rev < 4) { g_cfg.host_dp_pin = PIN_NONE; g_cfg.cfg_rev = 4; }
+        }
         return true;
     }
     if (stage != CONTROL_STAGE_SETUP) return true;
@@ -338,6 +345,59 @@ static uint16_t build_hid(const pad_t *s, uint8_t *out) {
     return HID_REPORT_LEN;
 }
 
+// ---- PS4 Rock Band 4-style guitar, 64 byte DualShock 4 report (report id 1).
+// Layout as Santroller's PS4RockBandGuitar_Data_t / GP2040-CE's PS4Report guitar union.
+static uint16_t build_ps4(const pad_t *s, uint8_t *out) {
+    memset(out, 0, PS4_GUITAR_REPORT_LEN);
+    out[0] = 0x01;
+    out[1] = out[2] = out[3] = out[4] = 0x80;          // sticks centred
+    uint8_t hat = 0x08;
+    if (s->strum_up && !s->strum_down) hat = 0x00;
+    else if (s->strum_down && !s->strum_up) hat = 0x04;
+    uint8_t b5 = hat;
+    if (s->blue)   b5 |= 0x10;                          // square
+    if (s->green)  b5 |= 0x20;                          // cross
+    if (s->red)    b5 |= 0x40;                          // circle
+    if (s->yellow) b5 |= 0x80;                          // triangle
+    uint8_t b6 = 0;
+    if (s->orange) b6 |= 0x01;                          // L1
+    if (s->star)   b6 |= 0x10;                          // share = overdrive
+    if (s->plus)   b6 |= 0x20;                          // options
+    out[5] = b5;
+    out[6] = b6;
+    out[30] = 0x1B;                                     // cable connected, battery full (as a wired DS4)
+    out[43] = 0x00;                                     // pickup selector notch
+    out[44] = (uint8_t)(s->whammy >> 7);               // whammy, 0 = rest
+    out[45] = s->tilt ? 0xFF : 0x00;                    // tilt
+    out[46] = (uint8_t)((s->green ? 0x01 : 0) | (s->red ? 0x02 : 0) | (s->yellow ? 0x04 : 0) |
+                        (s->blue ? 0x08 : 0) | (s->orange ? 0x10 : 0));
+    return PS4_GUITAR_REPORT_LEN;
+}
+
+// ---- Xbox One Rock Band 4-style guitar: 32 byte GIP input body (Santroller's XboxOneRockBandGuitar_Data_t)
+static void build_xbone(const pad_t *s, uint8_t *out) {
+    memset(out, 0, XBONE_GUITAR_PAYLOAD_LEN);
+    uint8_t b0 = 0, b1 = 0;
+    if (s->plus)   b0 |= 0x04;                          // menu
+    if (s->star)   b0 |= 0x08;                          // view = overdrive
+    if (s->green)  b0 |= 0x10;                          // A
+    if (s->red)    b0 |= 0x20;                          // B
+    if (s->blue)   b0 |= 0x40;                          // X
+    if (s->yellow) b0 |= 0x80;                          // Y
+    if (s->strum_up)   b1 |= 0x01;
+    if (s->strum_down) b1 |= 0x02;
+    if (s->orange) b1 |= 0x10;                          // LB
+    out[0] = b0;
+    out[1] = b1;
+    out[2] = s->tilt ? 0xFF : 0x00;                     // tilt
+    out[3] = (uint8_t)(s->whammy >> 7);                // whammy
+    out[4] = 0x00;                                      // pickup selector
+    out[5] = (uint8_t)((s->green ? 0x01 : 0) | (s->red ? 0x02 : 0) | (s->yellow ? 0x04 : 0) |
+                       (s->blue ? 0x08 : 0) | (s->orange ? 0x10 : 0));
+}
+
+static bool needs_host(uint8_t mode) { return mode == MODE_PS4 || mode == MODE_XBONE; }
+
 // ---------------------------------------------------------------- boot-time mode selection
 static void settle_inputs(void) {
     // Pull-ups need a moment, then the detection debounce needs a few ms of stable readings.
@@ -381,6 +441,8 @@ static uint8_t pick_mode(void) {
 }
 
 int main(void) {
+    // Pico-PIO-USB (the authentication host port) needs a system clock that is a multiple of 12 MHz
+    set_sys_clock_khz(120000, true);
     config_load();
     input_init();
     settle_inputs();
@@ -388,17 +450,22 @@ int main(void) {
 
     bt_init(g_cfg.flags & CFG_FLAG_BT_ENABLED);
     rgb_init();
+    if (g_usb_mode == MODE_XBONE) xbone_init();
     tusb_init();
+    if (needs_host(g_usb_mode) && g_cfg.host_dp_pin != PIN_NONE) usb_host_start(g_cfg.host_dp_pin);
     rgb_boot_indicator(g_usb_mode);
 
     uint64_t last_sent = 0, hold_start = 0;
     bool hold_fired = false;
-    uint8_t last_report[32] = {0};
+    uint8_t last_report[64] = {0};
+    uint8_t ps4_counter = 0;
+    bool ps4_first = true;
     uint16_t last_len = 0;
     bool dirty = true;
 
     while (true) {
         tud_task();
+        if (needs_host(g_usb_mode)) usb_host_task();
         bt_task();
         input_poll();
         rgb_task();
@@ -433,7 +500,13 @@ int main(void) {
 
         pad_t st;
         read_pad(&st);
-        uint8_t rpt[32];
+        if (g_usb_mode == MODE_XBONE) {                 // GIP has its own sequencing, acks and auth gate
+            uint8_t body[XBONE_GUITAR_PAYLOAD_LEN];
+            build_xbone(&st, body);
+            xbone_task(body, false);
+            continue;
+        }
+        uint8_t rpt[64];
         uint16_t len;
         switch (g_usb_mode) {
             case MODE_PS3_GH: len = build_ps3(&st, rpt); break;
@@ -443,6 +516,7 @@ int main(void) {
             case MODE_SWITCH: len = build_switch(&st, rpt); break;
             case MODE_OGXBOX: len = build_ogxbox(&st, rpt); break;
             case MODE_HID:    len = build_hid(&st, rpt); break;
+            case MODE_PS4:    len = build_ps4(&st, rpt); break;
             default:          len = build_xinput(&st, rpt); break;
         }
         if (len != last_len || memcmp(rpt, last_report, len) != 0) {
@@ -456,6 +530,13 @@ int main(void) {
             bool ok;
             if (g_usb_mode == MODE_XINPUT || g_usb_mode == MODE_OGXBOX) {
                 ok = xinput_send(last_report, last_len);
+            } else if (g_usb_mode == MODE_PS4) {
+                // every report carries a 6 bit counter; the very first one also taps PS so the console wakes up
+                uint8_t r[64];
+                memcpy(r, last_report, last_len);
+                r[7] = (uint8_t)((ps4_counter << 2) | (ps4_first ? 0x01 : 0));
+                ok = tud_hid_n_ready(0) && tud_hid_n_report(0, r[0], &r[1], (uint16_t)(last_len - 1));
+                if (ok) { ps4_counter = (uint8_t)((ps4_counter + 1) & 0x3F); ps4_first = false; }
             } else {
                 ok = tud_hid_n_ready(0) && tud_hid_n_report(0, 0, last_report, last_len);
             }

@@ -10,10 +10,13 @@ project(yacc C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
+# USB host port for console authentication passthrough (Pico-PIO-USB 0.6.1, MIT, vendored)
+set(PICO_PIO_USB_PATH ${CMAKE_CURRENT_LIST_DIR}/lib/pico_pio_usb)
+
 pico_sdk_init()
 
 set(YACC_VERSION_MAJOR 0)
-set(YACC_VERSION_MINOR 4)
+set(YACC_VERSION_MINOR 5)
 
 # Board ids reported to the web app
 if(PICO_BOARD STREQUAL "pico")
@@ -47,6 +50,12 @@ add_executable(yacc
   src/input.c
   src/bt.c
   src/rgb.c
+  # console authentication passthrough over a PIO USB host port (ported from GP2040-CE, MIT)
+  src/host/usb_host.cpp
+  src/host/ps4_auth.cpp
+  src/host/xbone.cpp
+  src/host/xgip_protocol.cpp
+  src/host/xinput_host.cpp
   # libxsm3 (Xbox 360 security, LGPL-2.1, by InvoxiPlayGames - same copy Santroller ships)
   lib/xsm3/excrypt_des.c
   lib/xsm3/excrypt_parve.c
@@ -77,6 +86,9 @@ target_link_libraries(yacc
   hardware_pio
   hardware_clocks
   tinyusb_device
+  tinyusb_host
+  tinyusb_pico_pio_usb
+  pico_util
 )
 
 pico_add_extra_outputs(yacc)

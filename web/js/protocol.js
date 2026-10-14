@@ -35,6 +35,10 @@ export const MODES = [
     desc: 'HORIPAD-compatible gamepad: works with every Switch game (Fortnite Festival, rhythm games) without pairing.' },
   { id: 7, name: 'Original Xbox', short: 'OG Xbox', config: false,
     desc: 'Original Xbox controller (XID). Needs a USB-to-Xbox-port adapter cable.' },
+  { id: 8, name: 'PS4 / PS5 guitar (experimental)', short: 'PS4', config: false, host: true,
+    desc: 'Rock Band 4 guitar for PS4 and PS5. The console\'s security check is passed through to a licensed PS4 controller or auth dongle plugged into the guitar\'s USB host port. Experimental: not yet tested on a console.' },
+  { id: 9, name: 'Xbox One / Series guitar (experimental)', short: 'Xbox One', config: false, host: true,
+    desc: 'Rock Band 4 guitar for Xbox One and Xbox Series. The console\'s security check is passed through to a licensed Xbox One / Series controller plugged into the guitar\'s USB host port. Experimental: not yet tested on a console.' },
 ];
 export const modeName = (id) => (MODES.find((m) => m.id === id) || { name: 'Unknown' }).name;
 
@@ -118,7 +122,7 @@ export function defaultConfig() {
     usbMode: 0, debounceMode: 0, debounce100us: 50,
     whammySmooth: 2, whammyDeadzone: 3,
     bootModes: [0, 3, 2, 1, 5],
-    cfgRev: 3,
+    cfgRev: 4, hostPin: PIN_NONE,
     xinputType: 0, starDpadLeft: false, rgbStarPower: true,
     ledType: 0, ledOrder: 0, ledClkPin: PIN_NONE, keys: [0x1e, 0x1f, 0x20, 0x21, 0x22, 0xe5, 0xe4, 0x4e, 0x29, 0x4e, 0x38],
     rgbEnabled: false, rgbBootFlash: true, rgbPin: PIN_NONE, rgbBrightness: 40, rgbEffect: 3, rgbSpeed: 5,
@@ -149,6 +153,7 @@ export function parseConfig(dv) {
     rgbEnabled: !!(flags & 8), rgbBootFlash: !!(flags & 16), starDpadLeft: !!(flags & 32), rgbStarPower: !!(flags & 64),
     xinputType: dv.getUint8(58), ledType: dv.getUint8(59), ledOrder: dv.getUint8(60), ledClkPin: dv.getUint8(61),
     keys: Array.from({ length: 11 }, (_, i) => dv.getUint8(62 + i)),
+    hostPin: dv.getUint8(57) >= 4 ? dv.getUint8(73) : PIN_NONE,
     rgbPin: dv.getUint8(33), rgbBrightness: dv.getUint8(34), rgbEffect: dv.getUint8(35), rgbSpeed: dv.getUint8(36),
     ledMap: [0, 1, 2, 3, 4].map((i) => dv.getUint8(37 + i)),
     colors: [0, 1, 2, 3, 4].map((i) => rgbToHex(dv.getUint8(42 + i * 3), dv.getUint8(43 + i * 3), dv.getUint8(44 + i * 3))),
@@ -179,12 +184,13 @@ export function serializeConfig(c) {
   dv.setUint8(36, Math.max(1, Math.min(10, c.rgbSpeed)));
   c.ledMap.forEach((m, i) => dv.setUint8(37 + i, m));
   c.colors.forEach((col, i) => { const [r, g, b] = hexToRgb(col); dv.setUint8(42 + i * 3, r); dv.setUint8(43 + i * 3, g); dv.setUint8(44 + i * 3, b); });
-  dv.setUint8(57, c.cfgRev ?? 3);
+  dv.setUint8(57, Math.max(4, c.cfgRev ?? 4));
   dv.setUint8(58, c.xinputType ?? 0);
   dv.setUint8(59, c.ledType ?? 0);
   dv.setUint8(60, c.ledOrder ?? 0);
   dv.setUint8(61, c.ledClkPin ?? PIN_NONE);
   (c.keys || []).forEach((k, i) => dv.setUint8(62 + i, k));
+  dv.setUint8(73, c.hostPin ?? PIN_NONE);
   dv.setUint32(92, crc32(new Uint8Array(buf, 0, 92)), true);
   return buf;
 }

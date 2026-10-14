@@ -9,7 +9,7 @@
 
 yacc_config_t g_cfg;
 
-#define CFG_REV 3
+#define CFG_REV 4
 
 #define CFG_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
 
@@ -46,6 +46,7 @@ bool config_validate(const yacc_config_t *c) {
     if (c->rgb_speed < 1 || c->rgb_speed > 10) return false;
     if (c->xinput_type > XI_ROCK_BAND || c->led_type >= NUM_LED_TYPES || c->led_order >= NUM_ORDERS) return false;
     if (c->led_clk_pin != PIN_NONE && c->led_clk_pin >= NUM_DIGITAL_PINS) return false;
+    if (c->host_dp_pin != PIN_NONE && c->host_dp_pin + 1 >= NUM_DIGITAL_PINS) return false;
     for (int i = 0; i < NUM_FRETS; i++) if (c->led_map[i] >= NUM_LEDS) return false;
     return true;
 }
@@ -89,6 +90,7 @@ void config_defaults(yacc_config_t *c) {
     c->led_type = LED_WS2812;
     c->led_order = ORDER_GRB;
     c->led_clk_pin = PIN_NONE;
+    c->host_dp_pin = PIN_NONE;
     config_keyboard_preset(c, 1);          // Fortnite Festival Pro guitar keys
     config_seal(c);
 }
@@ -125,6 +127,12 @@ void config_load(void) {
             if (g_cfg.boot_modes[F_ORANGE] == MODE_KEYBOARD || g_cfg.boot_modes[F_ORANGE] == MODE_NONE)
                 g_cfg.boot_modes[F_ORANGE] = MODE_SWITCH;
             g_cfg.cfg_rev = 3;
+            config_seal(&g_cfg);
+        }
+        // rev 4: USB host port added in a byte that used to be reserved (zero): start with it off
+        if (g_cfg.cfg_rev < 4) {
+            g_cfg.host_dp_pin = PIN_NONE;
+            g_cfg.cfg_rev = 4;
             config_seal(&g_cfg);
         }
     } else {

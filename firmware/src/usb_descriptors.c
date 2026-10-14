@@ -1,3 +1,4 @@
+#include "host/ps4_auth.h"
 #include "tusb.h"
 #include "pico/unique_id.h"
 #include "usb_common.h"
@@ -108,6 +109,7 @@ static const uint8_t desc_hid_keyboard[] = { TUD_HID_REPORT_DESC_KEYBOARD() };
 static bool mode_is_ps3_layout(uint8_t m) { return IS_PS3_MODE(m) || m == MODE_WII_RB; }
 
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
+    if (g_usb_mode == MODE_PS4) { uint16_t n; return ps4_report_desc(&n); }
     (void)instance;
     if (mode_is_ps3_layout(g_usb_mode)) return desc_hid_ps3_gh;    // GH, RB and Wii RB share it
     if (g_usb_mode == MODE_SWITCH) return desc_hid_switch;
@@ -116,6 +118,7 @@ uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
 }
 
 static uint16_t hid_report_desc_len(void) {
+    if (g_usb_mode == MODE_PS4) { uint16_t n; ps4_report_desc(&n); return n; }
     if (mode_is_ps3_layout(g_usb_mode)) return sizeof(desc_hid_ps3_gh);
     if (g_usb_mode == MODE_SWITCH) return sizeof(desc_hid_switch);
     if (g_usb_mode == MODE_KEYBOARD) return sizeof(desc_hid_keyboard);
@@ -149,6 +152,14 @@ uint8_t const *tud_descriptor_device_cb(void) {
         case MODE_SWITCH:
             desc_device.idVendor = HORI_VID; desc_device.idProduct = HORI_POKKEN_PID;
             desc_device.iSerialNumber = 0;
+            break;
+        case MODE_PS4:
+            desc_device.idVendor = RAZER_VID; desc_device.idProduct = RAZER_PS4_PID;
+            desc_device.iSerialNumber = 0;
+            break;
+        case MODE_XBONE:
+            desc_device.bDeviceClass = 0xFF; desc_device.bDeviceSubClass = 0x47; desc_device.bDeviceProtocol = 0xD0;
+            desc_device.idVendor = MADCATZ_VID; desc_device.idProduct = XBONE_GUITAR_PID; desc_device.bcdDevice = 0x0101;
             break;
         case MODE_OGXBOX:
             desc_device.bcdUSB = 0x0110;
@@ -189,6 +200,13 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
             7, TUSB_DESC_ENDPOINT, EP_PAD_OUT, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(32), 4,
         };
         memcpy(p, x, sizeof(x)); p += sizeof(x); n_itf++;
+    } else if (g_usb_mode == MODE_XBONE) {
+        const uint8_t x[] = {
+            9, TUSB_DESC_INTERFACE, ITF_PAD, 0, 2, 0xFF, 0x47, 0xD0, 0,
+            7, TUSB_DESC_ENDPOINT, EP_PAD_IN, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(64), 1,
+            7, TUSB_DESC_ENDPOINT, EP_PAD_OUT, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(64), 1,
+        };
+        memcpy(p, x, sizeof(x)); p += sizeof(x); n_itf++;
     } else if (g_usb_mode == MODE_KEYBOARD) {
         const uint8_t h[] = {TUD_HID_DESCRIPTOR(ITF_PAD, 0, HID_ITF_PROTOCOL_KEYBOARD, hid_report_desc_len(), EP_PAD_IN, 16, 1)};
         memcpy(p, h, sizeof(h)); p += sizeof(h); n_itf++;
@@ -207,8 +225,8 @@ uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
         memcpy(p, sec, sizeof(sec)); p += sizeof(sec); n_itf++;
     }
     uint16_t total = (uint16_t)(p - desc_config);
-    uint8_t attr = (g_usb_mode == MODE_SWITCH) ? 0x80 : (uint8_t)(0x80 | TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP);
-    uint8_t power = (g_usb_mode == MODE_SWITCH) ? 0xFA : 50;
+    uint8_t attr = (g_usb_mode == MODE_SWITCH || g_usb_mode == MODE_PS4) ? 0x80 : (uint8_t)(0x80 | TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP);
+    uint8_t power = (g_usb_mode == MODE_SWITCH || g_usb_mode == MODE_PS4 || g_usb_mode == MODE_XBONE) ? 0xFA : 50;
     uint8_t hdr[] = {9, TUSB_DESC_CONFIGURATION, U16_TO_U8S_LE(total), n_itf, 1, 0, attr, power};
     memcpy(desc_config, hdr, sizeof(hdr));
     return desc_config;
@@ -306,7 +324,8 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
                 s = g_usb_mode == MODE_PS3_GH ? "RedOctane"
                   : g_usb_mode == MODE_PS3_RB ? "Harmonix"
                   : g_usb_mode == MODE_WII_RB ? "Licensed by Nintendo of America "
-                  : g_usb_mode == MODE_SWITCH ? "HORI CO.,LTD." : "YAGCC";
+                  : g_usb_mode == MODE_SWITCH ? "HORI CO.,LTD."
+                  : g_usb_mode == MODE_XBONE  ? "Mad Catz" : "YAGCC";
                 break;
             case STR_PRODUCT:
                 s = g_usb_mode == MODE_PS3_GH ? "Guitar Hero3 for PlayStation (R) 3"
@@ -315,6 +334,8 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
                   : g_usb_mode == MODE_SWITCH ? "POKKEN CONTROLLER"
                   : g_usb_mode == MODE_HID    ? "YAGCC Guitar (HID)"
                   : g_usb_mode == MODE_KEYBOARD ? "YAGCC Guitar (Keyboard)"
+                  : g_usb_mode == MODE_PS4    ? "YAGCC Guitar (PS4)"
+                  : g_usb_mode == MODE_XBONE  ? "Rock Band 4 Stratocaster"
                                               : "YAGCC Guitar Controller";
                 break;
             case STR_SERIAL:   pico_get_unique_board_id_string(serial, sizeof(serial)); s = serial; break;

@@ -15,6 +15,10 @@
 #define WII_RB_GUITAR_PID 0x0004
 #define HORI_VID          0x0F0D
 #define HORI_POKKEN_PID   0x0092
+#define RAZER_VID         0x1532   // PS4 mode: same identity GP2040-CE uses
+#define RAZER_PS4_PID     0x0401
+#define MADCATZ_VID       0x0738   // Xbox One mode: Mad Catz, as Santroller's Xbox One guitars
+#define XBONE_GUITAR_PID  0x02EA
 #define IS_PS3_MODE(m) ((m) == MODE_PS3_GH || (m) == MODE_PS3_RB)
 
 #define ITF_PAD    0      // XInput or HID interface
@@ -45,6 +49,7 @@
 #define KEYBOARD_REPORT_LEN 8
 #define SWITCH_REPORT_LEN 8
 #define OGXBOX_REPORT_LEN 20
+#define PS4_GUITAR_REPORT_LEN 64
 
 extern uint8_t g_usb_mode;         // MODE_* currently running
 bool mode_has_config(uint8_t mode);

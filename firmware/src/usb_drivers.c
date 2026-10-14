@@ -6,6 +6,8 @@
 #include <string.h>
 #include "pico/unique_id.h"
 #include "xsm3.h"
+#include "host/ps4_auth.h"
+#include "host/xbone.h"
 
 static uint8_t ep_in, ep_out;
 static uint8_t out_buf[32];
@@ -29,6 +31,7 @@ static bool drv_deinit(void) { return true; }
 static void drv_reset(uint8_t rhport) {
     (void)rhport;
     ep_in = ep_out = 0;
+    if (g_usb_mode == MODE_XBONE) xbone_dev_reset();
 }
 
 static uint16_t drv_open(uint8_t rhport, tusb_desc_interface_t const *itf, uint16_t max_len) {
@@ -41,6 +44,7 @@ static uint16_t drv_open(uint8_t rhport, tusb_desc_interface_t const *itf, uint1
         return len;
     }
     if (itf->bInterfaceClass != TUSB_CLASS_VENDOR_SPECIFIC) return 0;   // HID is handled by TinyUSB itself
+    if (g_usb_mode == MODE_XBONE) return xbone_dev_open(rhport, itf, max_len);   // GIP (FF/47/D0)
 
     if (itf->bInterfaceSubClass == 0xFD && itf->bInterfaceProtocol == 0x13) {
         return 9 + 6;   // Xbox 360 security interface: no endpoints, one 6 byte class descriptor
@@ -73,6 +77,7 @@ static bool drv_control(uint8_t rhport, uint8_t stage, tusb_control_request_t co
 }
 
 static bool drv_xfer(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, uint32_t bytes) {
+    if (g_usb_mode == MODE_XBONE) return xbone_dev_xfer(rhport, ep_addr, result, bytes);
     if (ep_out && ep_addr == ep_out) {
         // XInput rumble report {0x00, 0x08, 0x00, left, right, ...}: games such as YARG use the
         // Santroller convention of right = command, left = parameter (star power, multiplier, ...)
@@ -226,6 +231,7 @@ static bool xid_request(uint8_t rhport, uint8_t stage, tusb_control_request_t co
 // All vendor-type control requests (XInput + Xbox 360 auth + XID + WebUSB/MS OS + YAGCC config protocol)
 bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request) {
     if (g_usb_mode == MODE_OGXBOX) return xid_request(rhport, stage, request);
+    if (g_usb_mode == MODE_XBONE) return xbone_dev_control(rhport, stage, request);
     if (g_usb_mode == MODE_XINPUT) {
         if (request->bRequest >= 0x81 && request->bRequest <= 0x87) return xsm3_request(rhport, stage, request);
         if (request->bRequest == VREQ_XINPUT && request->bmRequestType_bit.direction == TUSB_DIR_IN)
@@ -240,6 +246,7 @@ static const uint8_t ps3_init_report[8] = {0x21, 0x26, 0x01, 0x06, 0x00, 0x00, 0
 uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type,
                                uint8_t *buffer, uint16_t reqlen) {
     (void)instance;
+    if (g_usb_mode == MODE_PS4) return ps4_dev_get_report(report_id, report_type, buffer, reqlen);
     if ((IS_PS3_MODE(g_usb_mode) || g_usb_mode == MODE_WII_RB) && report_type == HID_REPORT_TYPE_FEATURE && report_id == 0) {
         // the PS3 handshake: byte 3 = 0x06 identifies a guitar (GH and RB alike)
         uint16_t n = reqlen < sizeof(ps3_init_report) ? reqlen : sizeof(ps3_init_report);
@@ -253,7 +260,8 @@ uint16_t tud_hid_get_report_cb(uint8_t instance, uint8_t report_id, hid_report_t
 // to restart it in setup mode without unplugging.
 void tud_hid_set_report_cb(uint8_t instance, uint8_t report_id, hid_report_type_t report_type,
                            uint8_t const *buffer, uint16_t bufsize) {
-    (void)instance; (void)report_id;
+    (void)instance;
+    if (g_usb_mode == MODE_PS4) { ps4_dev_set_report(report_id, report_type, buffer, bufsize); return; }
     if (report_type == HID_REPORT_TYPE_FEATURE && bufsize >= 6 && memcmp(buffer, "YAGCC!", 6) == 0) {
         usb_request_setup_reboot();
     }

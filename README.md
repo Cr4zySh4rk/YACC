@@ -43,6 +43,8 @@ Flash the board, plug it in, and the web app walks you through mapping every but
 | *(assign on Modes tab)* | **Fortnite Festival (keyboard)** | USB keyboard with the Fortnite Festival *Pro guitar* default keys (frets 1–5, strum Right Shift / Right Ctrl, star power PageDown, plus Esc) | Fortnite Festival on **PS4, PS5, Xbox One/Series and PC**: consoles accept a keyboard with no authentication |
 | *(assign on Modes tab)* | **Wii Rock Band** | Harmonix Wii guitar `1BAD:0004` | Rock Band on Wii / Dolphin |
 | *(assign on Modes tab)* | **OG Xbox** | Original Xbox controller (XID) | Guitar Hero II / III on original Xbox *(experimental)* |
+| *(assign on Modes tab)* | **PS4 / PS5 guitar** | Rock Band 4 PS4 guitar (`1532:0401`); console authentication is passed through to a controller on the USB host port | Rock Band 4 on PS4 / PS5 *(experimental, untested on a console)* |
+| *(assign on Modes tab)* | **Xbox One / Series guitar** | Rock Band 4 Stratocaster over GIP (`0738:02EA`); authentication passed through to a controller on the USB host port | Rock Band 4 on Xbox One / Series *(experimental, untested on a console)* |
 | Plus | **Setup mode** | XInput + web config for this boot only, nothing saved | |
 | Star + Plus | **Bootloader** | Jumps to UF2 mode so you can reflash without touching BOOTSEL | |
 
@@ -53,6 +55,18 @@ The mode picked by holding a fret is remembered (like GP2040-CE), and every fret
 **XInput options.** The guitar can report as a *Guitar Hero* (subtype 7) or *Rock Band* (subtype 6) guitar. Whammy sits on right stick X and tilt on right stick Y, both resting at the bottom like real guitars. When a game sends star power / overdrive state over the rumble channel, the fret LEDs can glow cyan (*Star power glow* on the Lights tab).
 
 **Configuring in other modes:** XInput, HID and keyboard modes keep the WebUSB config channel (browsers grant permission per mode, so press *Connect* once after switching). PS3, Wii, Switch and OG Xbox modes have to look exactly like the real device, so they have no config channel: the Setup page finds PS3/Wii guitars over WebHID (*Find it*) and restarts them in setup mode with one click; for the others hold *Plus* while plugging in. **macOS** has no XInput driver, so use HID mode for games on a Mac.
+
+**Console authentication (USB host port) — experimental.** PS4, PS5 and Xbox One / Series only accept licensed controllers. Like GP2040-CE, YAGCC can run a second, software USB port (Pico-PIO-USB on PIO1) and pass the console's security check through to a licensed controller plugged into it:
+
+* Pick the port's pins on the **Modes** tab (*Console authentication*): D+ on any free GPIO, D− on the next one.
+* Wire a USB-A socket: **D+** (green) and **D−** (white) to those pins, **VBUS** (red) to the board's VBUS / 5 V pin, **GND** (black) to GND.
+* **PS4 / PS5 mode:** plug in a wired DualShock 4 or a USB PS4 authentication dongle. The console sends its challenge to the guitar, which forwards it to the controller and returns the signed answer. PS5 needs a PS4 controller, not a DualSense.
+* **Xbox One / Series mode:** plug in a wired Xbox One / Series controller (Microsoft, PowerA, …) or a Mayflash / MagicBoots adapter. The guitar announces itself as a Rock Band 4 Stratocaster and relays the GIP security exchange; inputs are sent once the console accepts it.
+* With the host port on, the firmware runs the system clock at 120 MHz (needed for USB timing) and those two pins can't be used for buttons.
+
+This is ported from GP2040-CE's PS4 and Xbox One drivers but **has not yet been tested on a real console**; reports are welcome.
+
+**Backup and restore.** The **Tune** tab can download all settings (wiring, tuning, lights, modes) as a JSON file and restore any of those sections later, onto the same guitar or another one. Files are checked before anything is written, and pins that would clash on the target are skipped.
 
 See the **Compatibility** page in the web app for a game-by-game / console-by-console table with honest status labels (Supported, Experimental, Planned).
 
@@ -104,13 +118,14 @@ The **Hardware** page in the web app describes each board, the LED types, whammy
 
 ## Scope and roadmap
 
-YAGCC is guitar-only for now (drums and other instruments are out of scope). Planned, not yet implemented: Bluetooth (BLE) output, PS4/PS5 native guitar modes (these need an authentication dongle or a USB host port), wireless receivers, peripheral (wired neck) support over I²C.
+YAGCC is guitar-only for now (drums and other instruments are out of scope). Experimental and untested on consoles: PS4 / PS5 and Xbox One / Series guitar modes with authentication passthrough. Planned, not yet implemented: Bluetooth (BLE) output, wireless receivers, peripheral (wired neck) support over I²C.
 
 ## Repository layout
 
 ```
 firmware/   pico-sdk + TinyUSB firmware (XInput, PS3 GH/RB, HID, keyboard, Switch, Wii RB, OG Xbox + WebUSB config),
-            LED drivers, flash nuke, lib/xsm3 (Xbox 360 security, LGPL-2.1)
+            PS4 / Xbox One modes with auth passthrough (src/host), LED drivers, flash nuke,
+            lib/xsm3 (Xbox 360 security, LGPL-2.1), lib/pico_pio_usb (USB host port, MIT)
 web/        static web app (no build step) – deployed as-is
 tests/      unit tests for pin and whammy detection
 .github/    CI: builds all firmware variants and deploys the site to GitHub Pages
@@ -147,10 +162,10 @@ python3 -m http.server -d web 8000   # then open http://localhost:8000 in Chrome
 ## Protocol (for hackers)
 
 Configuration travels over WebUSB vendor control transfers on interface 1 (WinUSB via MS OS 2.0 descriptors):
-`0x30` info · `0x31` live status (GPIO levels, ADCs, debounced press counters) · `0x32/0x33` get/set config (96 bytes, version 4, CRC32; older 64-byte v3 configs are migrated on boot) · `0x34` save · `0x35` defaults · `0x36` reboot/bootloader · `0x37` set mode · `0x38` light one LED (wizard).
+`0x30` info · `0x31` live status (GPIO levels, ADCs, debounced press counters) · `0x32/0x33` get/set config (96 bytes, version 4, CRC32, byte 73 = USB host port D+ pin; older 64-byte v3 configs are migrated on boot) · `0x34` save · `0x35` defaults · `0x36` reboot/bootloader · `0x37` set mode · `0x38` light one LED (wizard).
 In the PS3 and Wii modes the configurator sends HID feature report `YAGCC!` to restart the controller once in setup mode.
 See `firmware/src/config.h`, `firmware/src/usb_common.h` and `web/js/protocol.js`.
 
 ## Credits & license
 
-Inspired by and compatible in spirit with [Santroller](https://github.com/Santroller/Santroller) and [GP2040-CE](https://github.com/OpenStickCommunity/GP2040-CE); USB identities and handshakes were studied from Santroller. Xbox 360 security uses **libxsm3** (from Santroller, LGPL-2.1, `firmware/lib/xsm3`). YAGCC is licensed under **GPL-3.0** (see `LICENSE`).
+Inspired by and compatible in spirit with [Santroller](https://github.com/Santroller/Santroller) and [GP2040-CE](https://github.com/OpenStickCommunity/GP2040-CE); USB identities and handshakes were studied from Santroller. Xbox 360 security uses **libxsm3** (from Santroller, LGPL-2.1, `firmware/lib/xsm3`). The PS4 and Xbox One authentication passthrough is adapted from **GP2040-CE** (MIT; `firmware/src/host`, including its `xgip_protocol` and XInput host driver), and the Rock Band 4 guitar identities and report layouts follow Santroller. The USB host port uses **Pico-PIO-USB** 0.6.1 by sekigon-gonnoc (MIT, `firmware/lib/pico_pio_usb`). YAGCC is licensed under **GPL-3.0** (see `LICENSE`).

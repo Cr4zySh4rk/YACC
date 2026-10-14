@@ -3,6 +3,7 @@
 #include "hardware/gpio.h"
 #include "hardware/adc.h"
 #include "rgb.h"
+#include "host/usb_host.h"
 
 // ---- detection grade pin state (fixed debounce, used for pin discovery) ----
 #define DETECT_DEBOUNCE_US 3000
@@ -84,7 +85,7 @@ void input_poll(void) {
 
     // detection grade
     for (int p = 0; p < NUM_DIGITAL_PINS; p++) {
-        if (rgb_active_pin(p)) { level[p] = 1; differing[p] = false; continue; }   // LED data line, not a button
+        if (rgb_active_pin(p) || usb_host_pin(p)) { level[p] = 1; differing[p] = false; continue; }   // LED / USB host lines, not buttons
         uint8_t raw = (all >> p) & 1;
         if (raw != level[p]) {
             if (!differing[p]) { differing[p] = true; since[p] = now; }
