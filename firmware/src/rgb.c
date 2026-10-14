@@ -1,5 +1,6 @@
-// WS2812 lighting for the five fret buttons: per-fret colour, remappable chain order,
-// press-reactive effects, power-limited brightness and a boot-time mode indicator.
+// Fret lighting: WS2812 / SK6812 (RGBW) over PIO or APA102 (data + clock), per-fret colour,
+// remappable chain order, press-reactive effects, brightness, a boot-time mode indicator and
+// star power glow when a game reports it.
 #include "rgb.h"
 #include <string.h>
 #include "pico/stdlib.h"
@@ -19,7 +20,10 @@ static PIO rgb_pio = pio0;
 static const uint rgb_sm = 0;
 static uint rgb_offset;
 static bool program_loaded;
-static int cur_pin = -1;
+static int cur_pin = -1, cur_clk = -1, cur_type = -1;
+static volatile bool star_power;
+
+void rgb_set_star_power(bool on) { star_power = on; }
 
 static uint32_t last_frame, boot_t0;
 static int boot_fret = -1;
@@ -40,28 +44,40 @@ void rgb_init(void) {
     last_frame = time_us_32();
 }
 
-static void attach(int pin) {
-    if (pin == cur_pin) return;
-    if (cur_pin >= 0) {
-        pio_sm_set_enabled(rgb_pio, rgb_sm, false);
-        gpio_init(cur_pin);
-        gpio_set_dir(cur_pin, GPIO_IN);
-        gpio_pull_up(cur_pin);
-    }
-    cur_pin = -1;
-    if (pin >= 0) {
-        ws2812_program_init(rgb_pio, rgb_sm, rgb_offset, (uint)pin, 800000.0f);
-        cur_pin = pin;
-    }
+static void release(int pin) {
+    if (pin < 0) return;
+    gpio_init(pin);
+    gpio_set_dir(pin, GPIO_IN);
+    gpio_pull_up(pin);
 }
 
-bool rgb_active_pin(int p) { return cur_pin >= 0 && p == cur_pin; }
+static void attach(int pin, int clk, int type) {
+    if (pin == cur_pin && clk == cur_clk && type == cur_type) return;
+    if (cur_pin >= 0 && cur_type != LED_APA102) pio_sm_set_enabled(rgb_pio, rgb_sm, false);
+    release(cur_pin);
+    release(cur_clk);
+    cur_pin = cur_clk = cur_type = -1;
+    if (pin < 0) return;
+    if (type == LED_APA102) {
+        if (clk < 0) return;
+        gpio_init(pin); gpio_set_dir(pin, GPIO_OUT); gpio_put(pin, 0);
+        gpio_init(clk); gpio_set_dir(clk, GPIO_OUT); gpio_put(clk, 0);
+        cur_clk = clk;
+    } else {
+        ws2812_program_init(rgb_pio, rgb_sm, rgb_offset, (uint)pin, 800000.0f, type == LED_SK6812_RGBW ? 32 : 24);
+    }
+    cur_pin = pin;
+    cur_type = type;
+}
+
+bool rgb_active_pin(int p) { return (cur_pin >= 0 && p == cur_pin) || (cur_clk >= 0 && p == cur_clk); }
 
 void rgb_boot_indicator(uint8_t mode) {
     boot_t0 = time_us_32();
     boot_fret = -1;
     for (int f = 0; f < NUM_FRETS; f++) if (g_cfg.boot_modes[f] == mode) { boot_fret = f; break; }
-    if (boot_fret < 0) boot_fret = (mode == MODE_PS3_GH) ? F_BLUE : (mode == MODE_PS3_RB) ? F_RED : (mode == MODE_HID) ? F_YELLOW : F_GREEN;
+    if (boot_fret < 0) boot_fret = (mode == MODE_PS3_GH) ? F_BLUE : (mode == MODE_PS3_RB) ? F_RED : (mode == MODE_HID) ? F_YELLOW
+                                 : (mode == MODE_KEYBOARD) ? F_ORANGE : F_GREEN;
 }
 
 void rgb_test_led(int led) {
@@ -82,26 +98,70 @@ static void hsv(uint8_t h, uint8_t *r, uint8_t *g, uint8_t *b) {
     }
 }
 
-static uint32_t pack(uint8_t r, uint8_t g, uint8_t b, uint8_t level, uint8_t bright) {
+typedef struct { uint8_t r, g, b; } px_t;
+
+static px_t pack(uint8_t r, uint8_t g, uint8_t b, uint8_t level, uint8_t bright) {
     uint32_t k = (uint32_t)level * bright;                  // 0 .. 255*255
-    uint32_t rr = (uint32_t)gamma8[r] * k / (255u * 255u);
-    uint32_t gg = (uint32_t)gamma8[g] * k / (255u * 255u);
-    uint32_t bb = (uint32_t)gamma8[b] * k / (255u * 255u);
-    return ((gg << 16) | (rr << 8) | bb) << 8;              // GRB, MSB aligned for the PIO
+    px_t p = { (uint8_t)((uint32_t)gamma8[r] * k / (255u * 255u)),
+               (uint8_t)((uint32_t)gamma8[g] * k / (255u * 255u)),
+               (uint8_t)((uint32_t)gamma8[b] * k / (255u * 255u)) };
+    return p;
+}
+
+static void apa102_byte(uint8_t v) {
+    for (int i = 7; i >= 0; i--) {
+        gpio_put(cur_pin, (v >> i) & 1);
+        gpio_put(cur_clk, 1);
+        gpio_put(cur_clk, 0);
+    }
+}
+
+static void output(const px_t *px) {
+    if (cur_type == LED_APA102) {
+        for (int i = 0; i < 4; i++) apa102_byte(0x00);                    // start frame
+        for (int i = 0; i < NUM_LEDS; i++) {
+            apa102_byte(0xFF);                                            // full global brightness (scaled in colour)
+            apa102_byte(px[i].b); apa102_byte(px[i].g); apa102_byte(px[i].r);
+        }
+        for (int i = 0; i < 4; i++) apa102_byte(0xFF);                    // end frame
+        return;
+    }
+    for (int i = 0; i < NUM_LEDS; i++) {
+        uint8_t r = px[i].r, g = px[i].g, b = px[i].b;
+        if (cur_type == LED_SK6812_RGBW) {
+            uint8_t w = r < g ? (r < b ? r : b) : (g < b ? g : b);        // move the shared white into W
+            uint32_t word = ((uint32_t)(g - w) << 24) | ((uint32_t)(r - w) << 16) | ((uint32_t)(b - w) << 8) | w;
+            pio_sm_put_blocking(rgb_pio, rgb_sm, word);
+            continue;
+        }
+        uint8_t c[3];
+        switch (g_cfg.led_order) {
+            case ORDER_RGB: c[0] = r; c[1] = g; c[2] = b; break;
+            case ORDER_BRG: c[0] = b; c[1] = r; c[2] = g; break;
+            case ORDER_RBG: c[0] = r; c[1] = b; c[2] = g; break;
+            case ORDER_GBR: c[0] = g; c[1] = b; c[2] = r; break;
+            case ORDER_BGR: c[0] = b; c[1] = g; c[2] = r; break;
+            default:        c[0] = g; c[1] = r; c[2] = b; break;          // GRB (WS2812B)
+        }
+        pio_sm_put_blocking(rgb_pio, rgb_sm, (((uint32_t)c[0] << 16) | ((uint32_t)c[1] << 8) | c[2]) << 8);
+    }
 }
 
 void rgb_task(void) {
     bool enabled = (g_cfg.flags & CFG_FLAG_RGB_ENABLED) && g_cfg.rgb_pin < NUM_DIGITAL_PINS;
     if (!program_loaded) return;
-    attach(enabled ? (int)g_cfg.rgb_pin : -1);
-    if (!enabled) return;
+    int clk = (g_cfg.led_type == LED_APA102 && g_cfg.led_clk_pin < NUM_DIGITAL_PINS) ? (int)g_cfg.led_clk_pin : -1;
+    attach(enabled ? (int)g_cfg.rgb_pin : -1, clk, g_cfg.led_type);
+    if (!enabled || cur_pin < 0) return;
 
     uint32_t now = time_us_32();
     if ((uint32_t)(now - last_frame) < FRAME_US) return;
     last_frame = now;
 
     uint8_t bright = g_cfg.rgb_brightness;                  // 0..255
-    uint32_t px[NUM_LEDS] = {0};
+    px_t px[NUM_LEDS];
+    memset(px, 0, sizeof(px));
+    bool sp = star_power && (g_cfg.flags & CFG_FLAG_RGB_STARPOWER);
     bool testing = test_led >= 0 && (int32_t)(now - test_until) < 0;
     bool booting = (g_cfg.flags & CFG_FLAG_RGB_BOOTFLASH) && boot_fret >= 0 && (uint32_t)(now - boot_t0) < BOOT_FLASH_US;
 
@@ -148,9 +208,16 @@ void rgb_task(void) {
                 }
                 default: break;
             }
+            if (sp && !down) {
+                // star power / overdrive from the game: idle frets glow a pulsing cyan
+                uint32_t ph = (now % 600000u) * 512u / 600000u;
+                uint32_t tri = ph < 256 ? ph : 511 - ph;
+                r = 0x40; g = 0xE0; b = 0xFF;
+                level = (uint8_t)(110 + tri * 145 / 255);
+            }
             was_pressed[f] = down;
             px[g_cfg.led_map[f]] = pack(r, g, b, level, bright);
         }
     }
-    for (int i = 0; i < NUM_LEDS; i++) pio_sm_put_blocking(rgb_pio, rgb_sm, px[i]);
+    output(px);
 }

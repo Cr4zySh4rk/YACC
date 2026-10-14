@@ -14,41 +14,56 @@ Flash the board, plug it in, and the web app walks you through mapping every but
 3. **Guided setup** – for every control YAGCC asks you to press it twice within a second, watches which GPIO changed, and assigns it:
    green → red → yellow → blue → orange → strum up → strum down → star power → plus.
 4. **Whammy** – move the bar through two full sweeps; YAGCC finds the analog pin, calibrates min/max, detects direction and shows a live meter. Live readings of GP26–28 are shown, with a manual *Use pin* / *Capture rest* / *Capture full* fallback.
-5. **RGB** – say whether you wired 5 WS2812 LEDs, give the data pin, and teach YAGCC which LED sits under which fret by pressing the frets.
+5. **RGB** – say whether you wired 5 RGB LEDs, give the data pin, and teach YAGCC which LED sits under which fret by pressing the frets.
 6. **Add-ons** – Bluetooth toggle (Pico W / Pico 2 W only) and an optional tilt switch (a plain digital switch such as a mercury ball switch; tilt up twice within 5 s to register it as a star-power shortcut).
 7. **Tune** – debounce time (presets or slider), combined-strum debounce, whammy smoothing, dead-zone and direction, all live.
-8. **Lights** – optional WS2812 RGB LEDs under the frets (colours, reactive effects, brightness, LED order).
-9. **Modes** – choose what the controller pretends to be.
+8. **Lights** – optional RGB LEDs under the frets (WS2812, SK6812 RGBW or APA102; colours, reactive effects, brightness, LED order, star power glow).
+9. **Modes** – choose what the controller pretends to be, the XInput guitar type and the Fortnite Festival key bindings.
+10. **Hardware / Compatibility** – reference pages listing supported boards and parts, and what works with which game and console.
 
 ## USB modes
 
-| Hold at plug-in (default) | Mode | Identity |
-|---|---|---|
-| Green | **XInput** | Xbox 360 guitar (subtype 6), answers the capability/serial requests Windows asks for. + WebUSB config |
-| Red | **PS3 Rock Band** | Rock Band guitar `12BA:0200` with Santroller's PS3 Rock Band report layout (tilt → R1, star power → select/overdrive) and the guitar handshake. Works with Rock Band on PS3 / RPCS3, Clone Hero and YARG |
-| Yellow | **HID gamepad** | Generic HID gamepad (16 buttons, hat, 4 axes) for macOS / Linux / Android / emulators. + WebUSB config |
-| Blue | **PS3 Guitar Hero** | RedOctane `12BA:0100`, Santroller-style HID descriptor and `0x21 0x26 0x01 0x06` handshake |
-| Plus | **Setup mode** | XInput + web config for this boot only, nothing saved |
-| Star + Plus | **Bootloader** | Jumps to UF2 mode so you can reflash without touching BOOTSEL |
+| Hold at plug-in (default) | Mode | What it is | Best for |
+|---|---|---|---|
+| Green | **XInput** | Xbox 360 guitar (Guitar Hero or Rock Band type, selectable). Answers Xbox 360 security (XSM3) | Windows / Clone Hero / YARG / Fortnite Festival (PC), Xbox 360 *(experimental)* |
+| Red | **PS3 Rock Band** | Rock Band guitar `12BA:0200` (Santroller report layout: tilt → R1, star power → select) | Rock Band on PS3 / RPCS3, YARG |
+| Yellow | **HID gamepad** | Generic gamepad (16 buttons, hat, 4 axes) | macOS, Linux, Android, emulators |
+| Blue | **PS3 Guitar Hero** | RedOctane `12BA:0100` with the PS3 guitar handshake | Guitar Hero on PS3 / RPCS3, Clone Hero |
+| Orange | **Fortnite Festival (keyboard)** | USB keyboard with the Fortnite Festival *Pro guitar* default keys (frets 1–5, strum Right Shift / Right Ctrl, star power PageDown, plus Esc) | Fortnite Festival on **PS4, PS5, Xbox One/Series and PC**: consoles accept a keyboard with no authentication |
+| *(assign on Modes tab)* | **Switch** | HORI Pokkén pad `0F0D:0092` | Fortnite Festival on Switch, Switch games |
+| *(assign on Modes tab)* | **Wii Rock Band** | Harmonix Wii guitar `1BAD:0004` | Rock Band on Wii / Dolphin |
+| *(assign on Modes tab)* | **OG Xbox** | Original Xbox controller (XID) | Guitar Hero II / III on original Xbox *(experimental)* |
+| Plus | **Setup mode** | XInput + web config for this boot only, nothing saved | |
+| Star + Plus | **Bootloader** | Jumps to UF2 mode so you can reflash without touching BOOTSEL | |
 
-The mode picked by holding a fret is remembered (like GP2040-CE).
+The mode picked by holding a fret is remembered (like GP2040-CE), and every fret → mode assignment can be changed on the **Modes** tab.
 
-**Configuring in other modes:** HID mode keeps the WebUSB config channel, but browsers grant permission per mode, so press *Connect* once after switching. The two PS3 modes have no config channel (they must look exactly like real PS3 guitars); the Setup page finds them over WebHID (*Find it*) and restarts them in setup mode with one click, or hold *Plus* while plugging in. **macOS** has no XInput driver, so use HID mode for games on a Mac. Every fret → mode assignment can be changed on the **Modes** tab.
+**Fortnite Festival.** Hold **orange** while plugging in. In Fortnite turn on *Pro* input for guitar and choose the keyboard layout that matches the bindings shown on the Modes tab (Pro guitar is the default; a Lead-lane preset — D F J K L, arrows, Space — is one click away, and every key is rebindable). On PC you can also use XInput mode with *Star power → D-pad left* switched on.
+
+**XInput options.** The guitar can report as a *Guitar Hero* (subtype 7) or *Rock Band* (subtype 6) guitar. Whammy sits on right stick X and tilt on right stick Y, both resting at the bottom like real guitars. When a game sends star power / overdrive state over the rumble channel, the fret LEDs can glow cyan (*Star power glow* on the Lights tab).
+
+**Configuring in other modes:** XInput, HID and keyboard modes keep the WebUSB config channel (browsers grant permission per mode, so press *Connect* once after switching). PS3, Wii, Switch and OG Xbox modes have to look exactly like the real device, so they have no config channel: the Setup page finds PS3/Wii guitars over WebHID (*Find it*) and restarts them in setup mode with one click; for the others hold *Plus* while plugging in. **macOS** has no XInput driver, so use HID mode for games on a Mac.
+
+See the **Compatibility** page in the web app for a game-by-game / console-by-console table with honest status labels (Supported, Experimental, Planned).
 
 ## Wiring
 
 * Buttons: any of **GP0–GP22**, switched to **GND** (internal pull-ups are enabled).
 * Whammy potentiometer: wiper to **GP26, GP27 or GP28** (ADC0–2), one end to **3V3(OUT) (pin 36)**, the other to GND/AGND. Don't power it from ADC_VREF (pin 35): on many clone boards that pin isn't fed, and the bar then barely moves the reading.
 * Tilt switch: any of GP0–GP22 to GND (a mercury ball switch is fine).
-* WS2812 LED data line: any free GP0–GP22.
+* LED data line (WS2812 / SK6812): any free GP0–GP22. APA102 / DotStar also needs a clock pin (any free GP0–GP22).
 
-## RGB lighting (WS2812)
+## RGB lighting
 
-* Five individually addressable WS2812/NeoPixel LEDs on **one data pin** (any of GP0–GP22 not used by a button), driven by a PIO state machine.
+* Five individually addressable LEDs under the frets. Supported chips:
+  * **WS2812 / WS2812B / NeoPixel** (one data pin, PIO-driven) with selectable colour order (GRB, RGB, BRG, …)
+  * **SK6812 RGBW** (one data pin; the shared white part of a colour moves to the white LED)
+  * **APA102 / SK9822 / DotStar** (data + clock pins)
 * **Brightness 0–255** – full range; five LEDs at full white draw up to ~300 mA from USB.
 * Per-fret **colours** with presets (gamma-corrected on the LEDs, so the red and orange you pick on screen come out red and orange, not pink and peach), and an **LED order wizard**: each LED lights white in turn and you press the fret above it.
 * **Effects**: static, dim on press, off on press, brighten on press, flash & fade, breathing, rainbow (speed adjustable).
-* **Mode indicator**: after plug-in the fret LED that selects the running mode (green = XInput, red = PS3 Rock Band, yellow = HID, blue = PS3 Guitar Hero by default) flashes for one second.
+* **Mode indicator**: after plug-in the fret LED that selects the running mode (green = XInput, red = PS3 Rock Band, yellow = HID, blue = PS3 Guitar Hero, orange = Fortnite Festival by default) flashes for one second.
+* **Star power glow**: in XInput mode, games that report star power (Clone Hero, YARG, Guitar Hero via the rumble channel) make the idle frets pulse cyan.
 * The LEDs work in every USB mode, including the PS3 modes where the web config is unavailable (set them up beforehand).
 
 ## Debounce
@@ -65,16 +80,27 @@ The only knob is the lockout time (presets from Off to 20 ms, or a slider up to 
 
 | Build | Board |
 |---|---|
-| `pico_clone` | Generic RP2040 "Pico-compatible" clones, including boards with an ESP8285 (Wi-Fi only) instead of a real Pico W radio. Uses the generic flash boot stage, slower flash clock and longer crystal start-up, like Santroller's `pico_w_compat`. |
-| `pico` / `pico_w` | Official Pico / Pico W |
+| `pico_clone` | Generic RP2040 "Pico-compatible" clones, including boards with an ESP8285 (Wi-Fi only) instead of a real Pico W radio. Uses the generic flash boot stage, slower flash clock and longer crystal start-up, like Santroller's `pico_w_compat`. **If unsure, use this one.** |
+| `pico` / `pico_w` | Official Raspberry Pi Pico / Pico W |
 | `pico2` / `pico2_w` | Official Pico 2 / Pico 2 W (RP2350) |
+| `waveshare_rp2040_zero` | Waveshare RP2040-Zero (tiny, fits inside most guitar necks) |
+| `waveshare_rp2040_one` | Waveshare RP2040-One |
+| `sparkfun_promicro` | SparkFun Pro Micro RP2040 (Pro Micro footprint, drop-in for old Arduino builds) |
+| `adafruit_kb2040` | Adafruit KB2040 (Pro Micro footprint) |
+
+The **Hardware** page in the web app describes each board, the LED types, whammy pots, tilt sensors and wiring, and warns about fake "Pico W" boards. Arduino (ATmega32U4 / 328P) and other microcontrollers are not supported: YAGCC is RP2040/RP2350 only.
 
 **Bluetooth** needs the CYW43 radio of a genuine Pico W / Pico 2 W. The ESP8285 on clone boards is Wi-Fi only, so the toggle is disabled there. The BLE-HID stack itself is not implemented yet — the setting is stored and the hook exists (`firmware/src/bt.c`).
+
+## Scope and roadmap
+
+YAGCC is guitar-only for now (drums and other instruments are out of scope). Planned, not yet implemented: Bluetooth (BLE) output, PS4/PS5 native guitar modes (these need an authentication dongle or a USB host port), wireless receivers, peripheral (wired neck) support over I²C.
 
 ## Repository layout
 
 ```
-firmware/   pico-sdk + TinyUSB firmware (XInput / PS3 GH / PS3 RB / HID + WebUSB config), WS2812 driver and flash nuke
+firmware/   pico-sdk + TinyUSB firmware (XInput, PS3 GH/RB, HID, keyboard, Switch, Wii RB, OG Xbox + WebUSB config),
+            LED drivers, flash nuke, lib/xsm3 (Xbox 360 security, LGPL-2.1)
 web/        static web app (no build step) – deployed as-is
 tests/      unit tests for pin and whammy detection
 .github/    CI: builds all firmware variants and deploys the site to GitHub Pages
@@ -110,10 +136,10 @@ python3 -m http.server -d web 8000   # then open http://localhost:8000 in Chrome
 ## Protocol (for hackers)
 
 Configuration travels over WebUSB vendor control transfers on interface 1 (WinUSB via MS OS 2.0 descriptors):
-`0x30` info · `0x31` live status (GPIO levels, ADCs, debounced press counters) · `0x32/0x33` get/set config (64 bytes, CRC32) · `0x34` save · `0x35` defaults · `0x36` reboot/bootloader · `0x37` set mode · `0x38` light one LED (wizard).
-In the PS3 modes the configurator sends HID feature report `YAGCC!` to restart the controller once in setup mode.
+`0x30` info · `0x31` live status (GPIO levels, ADCs, debounced press counters) · `0x32/0x33` get/set config (96 bytes, version 4, CRC32; older 64-byte v3 configs are migrated on boot) · `0x34` save · `0x35` defaults · `0x36` reboot/bootloader · `0x37` set mode · `0x38` light one LED (wizard).
+In the PS3 and Wii modes the configurator sends HID feature report `YAGCC!` to restart the controller once in setup mode.
 See `firmware/src/config.h`, `firmware/src/usb_common.h` and `web/js/protocol.js`.
 
 ## Credits & license
 
-Inspired by and compatible in spirit with [Santroller](https://github.com/Santroller/Santroller) and [GP2040-CE](https://github.com/OpenStickCommunity/GP2040-CE); USB identities and handshakes were studied from Santroller. Licensed under **GPL-3.0** (see `LICENSE`).
+Inspired by and compatible in spirit with [Santroller](https://github.com/Santroller/Santroller) and [GP2040-CE](https://github.com/OpenStickCommunity/GP2040-CE); USB identities and handshakes were studied from Santroller. Xbox 360 security uses **libxsm3** (from Santroller, LGPL-2.1, `firmware/lib/xsm3`). YAGCC is licensed under **GPL-3.0** (see `LICENSE`).

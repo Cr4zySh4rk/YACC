@@ -143,7 +143,25 @@ static void read_pad(pad_t *s) {
     s->whammy = input_whammy();
 }
 
-// ---- Xbox 360 guitar (Rock Band layout), 20 byte report
+// ---------------------------------------------------------------- game feedback (rumble channel)
+// Santroller's convention, which YARG uses: right motor byte = command, left = parameter.
+static volatile bool g_star_power_active;
+static volatile uint8_t g_star_power_fill;
+void usb_game_feedback(uint8_t command, uint8_t param) {
+    switch (command) {
+        case 0x09: g_star_power_active = param != 0; break;   // star power / overdrive active
+        case 0x08: g_star_power_fill = param; break;          // star power meter
+        case 0xFF: g_star_power_active = false; break;        // all off
+        default: break;
+    }
+    rgb_set_star_power(g_star_power_active);
+}
+
+// whammy 0..32767 -> full signed range with the rest position at -32768 (what XInput guitars report)
+static inline int16_t xi_axis(int16_t v) { return (int16_t)((int32_t)v * 2 - 32767); }
+
+// ---- Xbox 360 guitar, 20 byte report. Guitar Hero (subtype 7) and Rock Band (subtype 6) share
+// the layout Santroller uses: whammy on right stick X, tilt on right stick Y.
 static uint16_t build_xinput(const pad_t *s, uint8_t *out) {
     uint16_t b = 0;
     if (s->green)  b |= 0x1000;   // A
@@ -155,13 +173,16 @@ static uint16_t build_xinput(const pad_t *s, uint8_t *out) {
     if (s->strum_down) b |= 0x0002;
     if (s->plus) b |= 0x0010;     // start
     if (s->star) b |= 0x0020;     // back
+    // Fortnite Festival on PC reads overdrive from D-pad left
+    if (s->star && (g_cfg.flags & CFG_FLAG_STAR_DPAD_LEFT)) b |= 0x0004;
     memset(out, 0, XINPUT_REPORT_LEN);
     out[1] = XINPUT_REPORT_LEN;
     out[2] = (uint8_t)b;
     out[3] = (uint8_t)(b >> 8);
-    out[10] = (uint8_t)s->whammy;
-    out[11] = (uint8_t)((uint16_t)s->whammy >> 8);
-    int16_t tilt = s->star ? 32767 : 0;   // many games read star power from the tilt axis
+    int16_t whammy = xi_axis(s->whammy);
+    out[10] = (uint8_t)whammy;
+    out[11] = (uint8_t)((uint16_t)whammy >> 8);
+    int16_t tilt = s->star ? 32767 : -32768;   // games read star power from the tilt axis too
     out[12] = (uint8_t)tilt;
     out[13] = (uint8_t)((uint16_t)tilt >> 8);
     return XINPUT_REPORT_LEN;
@@ -228,6 +249,68 @@ static uint16_t build_ps3_rb(const pad_t *s, uint8_t *out) {
         out[20 + 2 * i] = 0x02;   // 0x0200
     }
     return PS3_REPORT_LEN;
+}
+
+// ---- USB keyboard, 8 byte boot report (Fortnite Festival keyboard bindings by default)
+static uint16_t build_keyboard(const pad_t *s, uint8_t *out) {
+    memset(out, 0, KEYBOARD_REPORT_LEN);
+    const bool on[NUM_KEYS] = {s->green, s->red, s->yellow, s->blue, s->orange, s->strum_up, s->strum_down,
+                               s->star && !s->tilt, s->plus, s->tilt, s->whammy > 16384};
+    int n = 0;
+    for (int k = 0; k < NUM_KEYS; k++) {
+        uint8_t code = g_cfg.keys[k];
+        if (!on[k] || code == 0) continue;
+        if (code >= 0xE0 && code <= 0xE7) { out[0] |= (uint8_t)(1u << (code - 0xE0)); continue; }
+        bool dup = false;
+        for (int i = 0; i < n; i++) if (out[2 + i] == code) dup = true;
+        if (!dup && n < 6) out[2 + n++] = code;
+    }
+    return KEYBOARD_REPORT_LEN;
+}
+
+// ---- Nintendo Switch (HORIPAD layout), 8 byte report
+static uint16_t build_switch(const pad_t *s, uint8_t *out) {
+    uint16_t b = 0;
+    if (s->yellow) b |= 1u << 0;   // Y
+    if (s->red)    b |= 1u << 1;   // B
+    if (s->green)  b |= 1u << 2;   // A
+    if (s->blue)   b |= 1u << 3;   // X
+    if (s->orange) b |= 1u << 4;   // L
+    if (s->tilt)   b |= 1u << 5;   // R
+    if (s->star)   b |= 1u << 8;   // minus
+    if (s->plus)   b |= 1u << 9;   // plus
+    out[0] = (uint8_t)b;
+    out[1] = (uint8_t)(b >> 8);
+    uint8_t hat = 0x08;
+    if (s->strum_up && !s->strum_down) hat = 0x00;
+    else if (s->strum_down && !s->strum_up) hat = 0x04;
+    out[2] = hat;
+    out[3] = 0x80; out[4] = 0x80;
+    out[5] = (uint8_t)(s->whammy >> 7);   // right stick X = whammy
+    out[6] = 0x80;
+    out[7] = 0x00;
+    return SWITCH_REPORT_LEN;
+}
+
+// ---- original Xbox ("Duke"), 20 byte report
+static uint16_t build_ogxbox(const pad_t *s, uint8_t *out) {
+    memset(out, 0, OGXBOX_REPORT_LEN);
+    out[1] = OGXBOX_REPORT_LEN;
+    uint8_t d = 0;
+    if (s->strum_up)   d |= 0x01;
+    if (s->strum_down) d |= 0x02;
+    if (s->plus)       d |= 0x10;   // start
+    if (s->star)       d |= 0x20;   // back
+    out[2] = d;
+    out[4] = s->green ? 0xFF : 0;   // A
+    out[5] = s->red ? 0xFF : 0;     // B
+    out[6] = s->blue ? 0xFF : 0;    // X
+    out[7] = s->yellow ? 0xFF : 0;  // Y
+    out[8] = s->orange ? 0xFF : 0;  // black
+    out[9] = s->tilt ? 0xFF : 0;    // white
+    int16_t whammy = xi_axis(s->whammy);
+    out[16] = (uint8_t)whammy; out[17] = (uint8_t)((uint16_t)whammy >> 8);   // right stick X
+    return OGXBOX_REPORT_LEN;
 }
 
 // ---- generic HID gamepad, 7 byte report
@@ -354,7 +437,11 @@ int main(void) {
         uint16_t len;
         switch (g_usb_mode) {
             case MODE_PS3_GH: len = build_ps3(&st, rpt); break;
-            case MODE_PS3_RB: len = build_ps3_rb(&st, rpt); break;
+            case MODE_PS3_RB:
+            case MODE_WII_RB: len = build_ps3_rb(&st, rpt); break;
+            case MODE_KEYBOARD: len = build_keyboard(&st, rpt); break;
+            case MODE_SWITCH: len = build_switch(&st, rpt); break;
+            case MODE_OGXBOX: len = build_ogxbox(&st, rpt); break;
             case MODE_HID:    len = build_hid(&st, rpt); break;
             default:          len = build_xinput(&st, rpt); break;
         }
@@ -367,7 +454,7 @@ int main(void) {
 
         if ((dirty || now - last_sent >= 8000) && tud_ready()) {
             bool ok;
-            if (g_usb_mode == MODE_XINPUT) {
+            if (g_usb_mode == MODE_XINPUT || g_usb_mode == MODE_OGXBOX) {
                 ok = xinput_send(last_report, last_len);
             } else {
                 ok = tud_hid_n_ready(0) && tud_hid_n_report(0, 0, last_report, last_len);

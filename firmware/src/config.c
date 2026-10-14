@@ -9,7 +9,7 @@
 
 yacc_config_t g_cfg;
 
-#define CFG_REV 1
+#define CFG_REV 2
 
 #define CFG_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
 
@@ -44,8 +44,19 @@ bool config_validate(const yacc_config_t *c) {
     if (c->rgb_pin != PIN_NONE && c->rgb_pin >= NUM_DIGITAL_PINS) return false;
     if (c->rgb_effect >= NUM_EFX) return false;
     if (c->rgb_speed < 1 || c->rgb_speed > 10) return false;
+    if (c->xinput_type > XI_ROCK_BAND || c->led_type >= NUM_LED_TYPES || c->led_order >= NUM_ORDERS) return false;
+    if (c->led_clk_pin != PIN_NONE && c->led_clk_pin >= NUM_DIGITAL_PINS) return false;
     for (int i = 0; i < NUM_FRETS; i++) if (c->led_map[i] >= NUM_LEDS) return false;
     return true;
+}
+
+// Keyboard presets (HID usage IDs). 0: Fortnite Festival lead, 1: Fortnite Festival Pro guitar
+void config_keyboard_preset(yacc_config_t *c, int preset) {
+    static const uint8_t lead[NUM_KEYS] = {0x07 /*D*/, 0x09 /*F*/, 0x0D /*J*/, 0x0E /*K*/, 0x0F /*L*/,
+                                           0x52 /*Up*/, 0x51 /*Down*/, 0x2C /*Space*/, 0x29 /*Esc*/, 0x2C /*Space*/, 0};
+    static const uint8_t pro[NUM_KEYS]  = {0x1E /*1*/, 0x1F /*2*/, 0x20 /*3*/, 0x21 /*4*/, 0x22 /*5*/,
+                                           0xE5 /*RShift*/, 0xE4 /*RCtrl*/, 0x4E /*PgDn*/, 0x29 /*Esc*/, 0x4E /*PgDn*/, 0x38 /*'/'*/};
+    memcpy(c->keys, preset == 1 ? pro : lead, NUM_KEYS);
 }
 
 void config_defaults(yacc_config_t *c) {
@@ -64,8 +75,8 @@ void config_defaults(yacc_config_t *c) {
     c->boot_modes[F_RED]    = MODE_PS3_RB;
     c->boot_modes[F_YELLOW] = MODE_HID;
     c->boot_modes[F_BLUE]   = MODE_PS3_GH;
-    c->boot_modes[F_ORANGE] = MODE_NONE;
-    c->flags |= CFG_FLAG_RGB_BOOTFLASH | CFG_FLAG_COMBINED_STRUM;
+    c->boot_modes[F_ORANGE] = MODE_KEYBOARD;
+    c->flags |= CFG_FLAG_RGB_BOOTFLASH | CFG_FLAG_COMBINED_STRUM | CFG_FLAG_RGB_STARPOWER;
     c->cfg_rev = CFG_REV;
     c->rgb_pin = PIN_NONE;
     c->rgb_brightness = 40;
@@ -74,6 +85,11 @@ void config_defaults(yacc_config_t *c) {
     static const uint8_t def_col[NUM_FRETS][3] = {
         {0x22, 0xC5, 0x5E}, {0xEF, 0x44, 0x44}, {0xFA, 0xCC, 0x15}, {0x3B, 0x82, 0xF6}, {0xFB, 0x92, 0x3C}};
     for (int i = 0; i < NUM_FRETS; i++) { c->led_map[i] = i; memcpy(c->colors[i], def_col[i], 3); }
+    c->xinput_type = XI_GUITAR_HERO;
+    c->led_type = LED_WS2812;
+    c->led_order = ORDER_GRB;
+    c->led_clk_pin = PIN_NONE;
+    config_keyboard_preset(c, 1);          // Fortnite Festival Pro guitar keys
     config_seal(c);
 }
 
@@ -81,12 +97,27 @@ void config_load(void) {
     const yacc_config_t *flash = (const yacc_config_t *)(XIP_BASE + CFG_OFFSET);
     yacc_config_t tmp;
     memcpy(&tmp, flash, sizeof(tmp));
+    if (!config_validate(&tmp) && tmp.magic == YACC_CFG_MAGIC && tmp.version == 3 &&
+        *(const uint32_t *)((const uint8_t *)flash + 60) == crc32((const uint8_t *)flash, 60)) {
+        // v3 (64 bytes) -> v4: keep everything, new fields get their defaults
+        yacc_config_t def;
+        config_defaults(&def);
+        memcpy(&tmp, flash, 58);           // up to and including cfg_rev
+        memcpy((uint8_t *)&tmp + 58, (uint8_t *)&def + 58, sizeof(tmp) - 58);
+        config_seal(&tmp);
+    }
     if (config_validate(&tmp)) {
         g_cfg = tmp;
         // rev 1: Rock Band mode was added on the red fret; give it to configs that left red unassigned
         if (g_cfg.cfg_rev < 1) {
             if (g_cfg.boot_modes[F_RED] == MODE_NONE) g_cfg.boot_modes[F_RED] = MODE_PS3_RB;
             g_cfg.cfg_rev = 1;
+            config_seal(&g_cfg);
+        }
+        // rev 2: keyboard (Fortnite Festival) mode on the orange fret when it was free
+        if (g_cfg.cfg_rev < 2) {
+            if (g_cfg.boot_modes[F_ORANGE] == MODE_NONE) g_cfg.boot_modes[F_ORANGE] = MODE_KEYBOARD;
+            g_cfg.cfg_rev = 2;
             config_seal(&g_cfg);
         }
     } else {

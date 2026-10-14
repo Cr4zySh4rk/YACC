@@ -19,6 +19,8 @@
       <button data-view="tune">Tune</button>
       <button data-view="lights">Lights</button>
       <button data-view="modes">Modes</button>
+      <button data-view="hardware">Hardware</button>
+      <button data-view="compat">Compatibility</button>
     </nav>
     <span class="pill" id="connPill"><span class="dot"></span><span id="connText">Not connected</span></span>
   </div>
@@ -79,7 +81,7 @@
       <h2>No controller connected</h2>
       <p class="muted">Plug in a Pico running YAGCC firmware and connect it to start the guided setup.</p>
       <button class="btn primary" id="connectBtn2">Connect controller</button>
-      <p class="muted" style="font-size:13px;margin-top:14px">Controller plugged in as a <b>PS3 guitar</b> (Guitar Hero or Rock Band) or <b>HID gamepad</b>? <a href="#" id="findHid">Find it</a> — a PS3-mode controller is restarted in setup mode for you.</p>
+      <p class="muted" style="font-size:13px;margin-top:14px">Controller running in a console mode (PS3, Wii, Switch) or as an HID gamepad / keyboard? <a href="#" id="findHid">Find it</a> — PS3 and Wii modes are restarted in setup mode for you.</p>
       <div id="otherMode" style="margin:14px auto 0;max-width:560px"></div>
     </div>
     <div class="setup" id="setupMain" style="display:none">
@@ -136,9 +138,17 @@
         <div id="rgbOpts">
           <div class="opt"><div><h3>Data pin</h3><span class="muted">The GPIO connected to the first LED's DIN.</span></div>
             <select id="rgbPin"></select></div>
+          <div class="opt"><div><h3>LED type</h3><span class="muted" id="ledTypeDesc"></span></div>
+            <select id="ledType"></select></div>
+          <div class="opt" id="ledOrderRow"><div><h3>Colour order</h3><span class="muted">If red shows as green, try RGB.</span></div>
+            <select id="ledOrder"></select></div>
+          <div class="opt" id="ledClkRow"><div><h3>Clock pin</h3><span class="muted">APA102 CI / CLK input.</span></div>
+            <select id="ledClk"></select></div>
           <div class="slider-row"><label for="rgbBri">Brightness</label><span class="val" id="rgbBriVal"></span>
             <input type="range" id="rgbBri" min="0" max="255" step="1"></div>
           <div class="muted" style="font-size:13px">0–255. Five LEDs at full white draw up to ~300 mA from USB; lower values run cooler and are easier on the eyes.</div>
+          <div class="opt"><div><h3>Star power glow</h3><span class="muted">When a game reports star power / overdrive (YARG over XInput), idle frets pulse cyan.</span></div>
+            <label class="switch"><input type="checkbox" id="rgbSp"><i></i></label></div>
           <div class="opt"><div><h3>Show the mode on plug-in</h3><span class="muted">Flashes the fret LED that selects the running mode (green = XInput, blue = PS3, yellow = HID by default) for one second.</span></div>
             <label class="switch"><input type="checkbox" id="rgbFlash"><i></i></label></div>
         </div>
@@ -185,7 +195,42 @@
           <b>Always available:</b> hold <b>Plus</b> while plugging in for setup mode (XInput + this page, nothing saved). Hold <b>Star power + Plus</b> to jump straight to the firmware-update bootloader.
         </div>
       </div>
+      <div class="grid two" style="margin-top:18px">
+        <div class="card">
+          <h2>Xbox / XInput</h2>
+          <div class="radio-cards" id="xiType"></div>
+          <div class="opt"><div><h3>Star power also presses D-pad left</h3><span class="muted">Fortnite Festival on PC reads overdrive from D-pad left. Leave off for Clone Hero / YARG.</span></div>
+            <label class="switch"><input type="checkbox" id="starLeft"><i></i></label></div>
+        </div>
+        <div class="card">
+          <h2>Keyboard · Fortnite Festival</h2>
+          <p class="muted">Used in keyboard mode (orange fret by default). Must match the keys set in Fortnite.</p>
+          <div class="row" id="keyPresets" style="flex-wrap:wrap;margin-bottom:10px"></div>
+          <div class="keymap" id="keyMap"></div>
+        </div>
+      </div>
       <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn primary" id="saveModes">Save &amp; restart controller</button></div>
+    </div>
+  </section>
+  <!-- ================= HARDWARE ================= -->
+  <section class="view" id="view-hardware">
+    <h1>Supported hardware</h1>
+    <p class="lead">Boards, switches, sensors and LEDs you can build a YAGCC guitar with. Wire buttons to any free GPIO — the guided setup works out which pin is which.</p>
+    <div class="notice info" style="margin-bottom:16px"><b>Watch out for fake "Pico W" boards.</b> Many cheap boards swap the Raspberry Pi wireless chip for an ESP8285 / ESP8266, which is Wi-Fi only. They work fine over USB with the <b>pico_clone</b> firmware, but can never do Bluetooth. A genuine Pico W has a silver shield marked "Raspberry Pi" over the radio.</div>
+    <div id="hwList"></div>
+  </section>
+
+  <!-- ================= COMPATIBILITY ================= -->
+  <section class="view" id="view-compat">
+    <h1>Console compatibility</h1>
+    <p class="lead">Which mode to use on each console and game. Hold a fret while plugging in to pick the mode (defaults: green XInput, red PS3 Rock Band, yellow HID, blue PS3 Guitar Hero, orange keyboard for Fortnite Festival).</p>
+    <div id="compatList"></div>
+    <div class="card" style="margin-top:18px">
+      <h2>Avoiding console authentication</h2>
+      <p class="muted">PS4, PS5 and Xbox One / Series only accept licensed controllers. Two setups don't need any extra hardware:</p>
+      <ul class="muted"><li><b>Fortnite Festival:</b> keyboard mode (orange fret). Keyboards are never asked to authenticate.</li>
+        <li><b>Rock Band 4 on PS4 / PS5:</b> PS3 Rock Band mode (red fret). The game accepts PS3 guitars as legacy instruments.</li></ul>
+      <p class="muted" style="margin-bottom:0">Everything else on those consoles needs an authentication device on a USB host port, which is planned.</p>
     </div>
   </section>
 </main>

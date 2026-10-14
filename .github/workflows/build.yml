@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        board: [pico_clone, pico, pico_w, pico2, pico2_w]
+        board: [pico_clone, pico, pico_w, pico2, pico2_w, waveshare_rp2040_zero, waveshare_rp2040_one, sparkfun_promicro, adafruit_kb2040]
     steps:
       - uses: actions/checkout@v4
 

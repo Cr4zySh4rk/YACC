@@ -26,6 +26,10 @@ enum {
     MODE_PS3_GH = 1,   // PlayStation 3 Guitar Hero guitar (HID)
     MODE_HID    = 2,   // Generic HID gamepad + WebUSB config
     MODE_PS3_RB = 3,   // PlayStation 3 Rock Band guitar (HID), same identity Santroller uses
+    MODE_KEYBOARD = 4, // USB keyboard (Fortnite Festival on PS4/PS5/Xbox without auth) + WebUSB config
+    MODE_SWITCH = 5,   // Nintendo Switch (HORIPAD-compatible HID gamepad)
+    MODE_WII_RB = 6,   // Wii Rock Band guitar (USB dongle identity, 1BAD:0004)
+    MODE_OGXBOX = 7,   // Original Xbox controller (XID) - needs a USB-to-Xbox-port adapter
     NUM_MODES
 };
 #define MODE_NONE 0xFF
@@ -42,6 +46,8 @@ enum {
 #define CFG_FLAG_COMBINED_STRUM (1u << 2)   // strum up/down share one debounce window
 #define CFG_FLAG_RGB_ENABLED    (1u << 3)   // WS2812 strip on rgb_pin
 #define CFG_FLAG_RGB_BOOTFLASH  (1u << 4)   // flash the mode's fret LED for 1 s after plug-in
+#define CFG_FLAG_STAR_DPAD_LEFT (1u << 5)   // XInput: star power also presses D-pad left (Fortnite Festival overdrive)
+#define CFG_FLAG_RGB_STARPOWER  (1u << 6)   // light the frets when a game reports star power
 
 // Debounce behaviour (same three flavours Santroller offers)
 enum {
@@ -51,7 +57,8 @@ enum {
 };
 
 #define YACC_CFG_MAGIC   0x43434159u  // "YAGCC" little endian
-#define YACC_CFG_VERSION 3
+#define YACC_CFG_VERSION 4
+#define YACC_CFG_V3_SIZE 64
 
 #define NUM_LEDS 5
 // What the fret LEDs do
@@ -66,7 +73,17 @@ enum {
     NUM_EFX
 };
 
-// 64 bytes on the wire and in flash. Keep in sync with web/js/protocol.js
+// LED chip types
+enum { LED_WS2812 = 0, LED_SK6812_RGBW = 1, LED_APA102 = 2, NUM_LED_TYPES };
+// colour order on the wire for WS2812-style chips
+enum { ORDER_GRB = 0, ORDER_RGB, ORDER_BRG, ORDER_RBG, ORDER_GBR, ORDER_BGR, NUM_ORDERS };
+// XInput guitar flavour
+enum { XI_GUITAR_HERO = 0, XI_ROCK_BAND = 1 };
+// keyboard mode: key slots
+enum { KEY_GREEN = 0, KEY_RED, KEY_YELLOW, KEY_BLUE, KEY_ORANGE, KEY_STRUM_UP, KEY_STRUM_DOWN,
+       KEY_STAR, KEY_PLUS, KEY_TILT, KEY_WHAMMY, NUM_KEYS };
+
+// 96 bytes on the wire and in flash. Keep in sync with web/js/protocol.js
 typedef struct __attribute__((packed)) {
     uint32_t magic;               // 0
     uint8_t  version;             // 4
@@ -90,11 +107,16 @@ typedef struct __attribute__((packed)) {
     uint8_t  led_map[NUM_FRETS];  // 37..41  position in the chain of each fret's LED
     uint8_t  colors[NUM_FRETS][3];// 42..56  R,G,B of each fret
     uint8_t  cfg_rev;             // 57      bumped by in-place migrations (see config_load)
-    uint8_t  reserved[2];         // 58..59
-    uint32_t crc;                 // 60      crc32 of bytes 0..59
+    uint8_t  xinput_type;         // 58      XI_GUITAR_HERO / XI_ROCK_BAND
+    uint8_t  led_type;            // 59      LED_*
+    uint8_t  led_order;           // 60      ORDER_* (WS2812 / SK6812)
+    uint8_t  led_clk_pin;         // 61      APA102 clock GPIO or PIN_NONE
+    uint8_t  keys[NUM_KEYS];      // 62..72  HID usage codes for keyboard mode (0 = none, 0xE0..E7 = modifiers)
+    uint8_t  reserved[19];        // 73..91
+    uint32_t crc;                 // 92      crc32 of bytes 0..91
 } yacc_config_t;
 
-_Static_assert(sizeof(yacc_config_t) == 64, "config size");
+_Static_assert(sizeof(yacc_config_t) == 96, "config size");
 
 extern yacc_config_t g_cfg;
 
@@ -103,5 +125,6 @@ void config_load(void);
 bool config_save(void);
 bool config_validate(const yacc_config_t *c);
 void config_seal(yacc_config_t *c);   // fill magic/version/crc
+void config_keyboard_preset(yacc_config_t *c, int preset);
 
 #endif

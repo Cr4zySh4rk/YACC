@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 set(YACC_VERSION_MAJOR 0)
-set(YACC_VERSION_MINOR 3)
+set(YACC_VERSION_MINOR 4)
 
 # Board ids reported to the web app
 if(PICO_BOARD STREQUAL "pico")
@@ -26,6 +26,15 @@ elseif(PICO_BOARD STREQUAL "pico2_w")
   set(YACC_BOARD_ID 3)
 elseif(PICO_BOARD STREQUAL "pico_clone")
   set(YACC_BOARD_ID 4)
+elseif(PICO_BOARD STREQUAL "waveshare_rp2040_zero")
+  set(YACC_BOARD_ID 5)
+elseif(PICO_BOARD STREQUAL "waveshare_rp2040_one")
+  set(YACC_BOARD_ID 6)
+elseif(PICO_BOARD STREQUAL "sparkfun_promicro")
+  set(YACC_BOARD_ID 7)
+elseif(PICO_BOARD STREQUAL "adafruit_kb2040")
+  set(YACC_BOARD_ID 8)
+
 else()
   set(YACC_BOARD_ID 255)
 endif()
@@ -38,11 +47,17 @@ add_executable(yacc
   src/input.c
   src/bt.c
   src/rgb.c
+  # libxsm3 (Xbox 360 security, LGPL-2.1, by InvoxiPlayGames - same copy Santroller ships)
+  lib/xsm3/excrypt_des.c
+  lib/xsm3/excrypt_parve.c
+  lib/xsm3/excrypt_sha.c
+  lib/xsm3/usbdsec.c
+  lib/xsm3/xsm3.c
 )
 
 pico_generate_pio_header(yacc ${CMAKE_CURRENT_LIST_DIR}/src/ws2812.pio)
 
-target_include_directories(yacc PRIVATE src)
+target_include_directories(yacc PRIVATE src lib/xsm3)
 
 target_compile_definitions(yacc PRIVATE
   YACC_VERSION_MAJOR=${YACC_VERSION_MAJOR}

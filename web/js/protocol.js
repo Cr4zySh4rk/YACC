@@ -1,6 +1,6 @@
 // YAGCC wire protocol (the on-wire magic stays 'YACC' for compatibility) - mirrors firmware/src/config.h and usb_common.h
 export const VID = 0x1209;
-export const PIDS = [0x0001, 0x0002];
+export const PIDS = [0x0001, 0x0002, 0x0003];
 
 export const VREQ = {
   INFO: 0x30, STATUS: 0x31, GETCFG: 0x32, SETCFG: 0x33,
@@ -17,16 +17,31 @@ export const PIN_NONE = 0xff;
 export const NUM_DIGITAL_PINS = 23;
 export const MODE_NONE = 0xff;
 
+// order = how they are listed in the UI; id = firmware MODE_* value
 export const MODES = [
-  { id: 0, name: 'XInput', short: 'XInput', desc: 'Xbox 360 guitar. Plug-and-play on Windows (Clone Hero, YARG, Fortnite Festival). macOS has no XInput driver — use HID mode on a Mac.' },
-  { id: 1, name: 'PS3 Guitar Hero', short: 'PS3', desc: 'Identifies as a RedOctane PS3 Guitar Hero guitar (0x12BA:0x0100). No web config in this mode — the Setup page can restart it in setup mode.' },
-  { id: 3, name: 'PS3 Rock Band', short: 'PS3 RB', desc: 'Identifies as a PS3 Rock Band guitar (0x12BA:0x0200), the same identity Santroller uses. Tilt is sent as Rock Band tilt, star power as overdrive (select). Works with Rock Band on PS3 and RPCS3, and with Clone Hero / YARG. No web config in this mode — the Setup page can restart it in setup mode.' },
-  { id: 2, name: 'HID Gamepad', short: 'HID', desc: 'Generic HID gamepad for macOS, Linux, Android and emulators. Configurable here too (the browser asks for permission once for this mode).' },
+  { id: 0, name: 'XInput (Xbox 360)', short: 'XInput', config: true,
+    desc: 'Xbox 360 guitar: Guitar Hero or Rock Band type. Plug-and-play on Windows (Clone Hero, YARG, Fortnite Festival) and on a real Xbox 360 — the console\'s security check is answered by the firmware. macOS has no XInput driver: use HID mode on a Mac.' },
+  { id: 3, name: 'PS3 Rock Band', short: 'PS3 RB', config: false,
+    desc: 'PS3 Rock Band guitar (12BA:0200). Rock Band on PS3, PS2 and RPCS3, and Rock Band 4 on PS4 / PS5 (legacy instruments). Also fine for Clone Hero / YARG.' },
+  { id: 1, name: 'PS3 Guitar Hero', short: 'PS3 GH', config: false,
+    desc: 'PS3 Guitar Hero guitar (12BA:0100). Guitar Hero on PS3 / PS2 (World Tour, GH5, Band Hero) and RPCS3 / PCSX2.' },
+  { id: 2, name: 'HID Gamepad', short: 'HID', config: true,
+    desc: 'Generic HID gamepad for macOS, Linux, Android and emulators. Configurable here too (the browser asks for permission once for this mode).' },
+  { id: 4, name: 'Keyboard · Fortnite Festival', short: 'Keyboard', config: true,
+    desc: 'Shows up as a USB keyboard with Fortnite Festival key bindings, so it works on PS4, PS5, Xbox One / Series and PC without any authentication dongle. Bindings can be changed below.' },
+  { id: 6, name: 'Wii Rock Band', short: 'Wii RB', config: false,
+    desc: 'Wii Rock Band guitar dongle (1BAD:0004) for Rock Band 1–3 and The Beatles: Rock Band on Wii / Wii U over USB.' },
+  { id: 5, name: 'Nintendo Switch', short: 'Switch', config: false,
+    desc: 'HORIPAD-compatible gamepad: works with every Switch game (Fortnite Festival, rhythm games) without pairing.' },
+  { id: 7, name: 'Original Xbox', short: 'OG Xbox', config: false,
+    desc: 'Original Xbox controller (XID). Needs a USB-to-Xbox-port adapter cable.' },
 ];
+export const modeName = (id) => (MODES.find((m) => m.id === id) || { name: 'Unknown' }).name;
 
 export const BOARDS = {
   0: 'Raspberry Pi Pico', 1: 'Raspberry Pi Pico W', 2: 'Raspberry Pi Pico 2',
-  3: 'Raspberry Pi Pico 2 W', 4: 'Pico-compatible clone', 255: 'Unknown board',
+  3: 'Raspberry Pi Pico 2 W', 4: 'Pico-compatible clone', 5: 'Waveshare RP2040-Zero', 6: 'Waveshare RP2040-One',
+  7: 'SparkFun Pro Micro RP2040', 8: 'Adafruit KB2040', 255: 'Unknown board',
 };
 
 export const DEBOUNCE_MODES = [
@@ -36,6 +51,33 @@ export const DEBOUNCE_MODES = [
 ];
 
 export const NUM_LEDS = 5;
+export const LED_TYPES = [
+  { id: 0, name: 'WS2812B / NeoPixel', desc: 'One data wire. Also WS2813, SK6812 (RGB) and most addressable strips.' },
+  { id: 1, name: 'SK6812 RGBW', desc: 'One data wire, with a separate white LED in each pixel.' },
+  { id: 2, name: 'APA102 / DotStar', desc: 'Data and clock wires — no timing issues, any length of wire.' },
+];
+export const LED_ORDERS = ['GRB', 'RGB', 'BRG', 'RBG', 'GBR', 'BGR'];
+
+// keyboard mode: slots in firmware order, and the HID usage codes a user can pick
+export const KEY_SLOTS = ['Green', 'Red', 'Yellow', 'Blue', 'Orange', 'Strum up', 'Strum down', 'Star power', 'Plus', 'Tilt', 'Whammy (past half way)'];
+export const KEYS = (() => {
+  const k = { 0: 'None' };
+  for (let i = 0; i < 26; i++) k[0x04 + i] = String.fromCharCode(65 + i);
+  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].forEach((d, i) => { k[0x1e + i] = d; });
+  Object.assign(k, { 0x28: 'Enter', 0x29: 'Escape', 0x2a: 'Backspace', 0x2b: 'Tab', 0x2c: 'Space', 0x2d: '-', 0x2e: '=',
+    0x2f: '[', 0x30: ']', 0x33: ';', 0x34: "'", 0x36: ',', 0x37: '.', 0x38: '/',
+    0x4a: 'Home', 0x4b: 'Page Up', 0x4c: 'Delete', 0x4d: 'End', 0x4e: 'Page Down',
+    0x4f: 'Right', 0x50: 'Left', 0x51: 'Down', 0x52: 'Up',
+    0xe0: 'Left Ctrl', 0xe1: 'Left Shift', 0xe2: 'Left Alt', 0xe4: 'Right Ctrl', 0xe5: 'Right Shift', 0xe6: 'Right Alt' });
+  for (let i = 0; i < 12; i++) k[0x3a + i] = 'F' + (i + 1);
+  return k;
+})();
+export const KEY_PRESETS = [
+  { name: 'Fortnite Festival · Pro guitar', keys: [0x1e, 0x1f, 0x20, 0x21, 0x22, 0xe5, 0xe4, 0x4e, 0x29, 0x4e, 0x38],
+    desc: 'Frets 1–5, strum on Right Shift / Right Ctrl, overdrive (star power and tilt) on Page Down, whammy on /.' },
+  { name: 'Fortnite Festival · Lead', keys: [0x07, 0x09, 0x0d, 0x0e, 0x0f, 0x52, 0x51, 0x2c, 0x29, 0x2c, 0x00],
+    desc: 'Frets on D F J K L, overdrive on Space. Strum moves through menus.' },
+];
 export const FRET_DEFAULT_COLORS = ['#22c55e', '#ef4444', '#facc15', '#3b82f6', '#fb923c'];
 export const EFFECTS = [
   { id: 0, name: 'Static', desc: 'Always full colour. Does not react.' },
@@ -75,15 +117,17 @@ export function defaultConfig() {
     btEnabled: false, tiltEnabled: false, combinedStrum: true,
     usbMode: 0, debounceMode: 0, debounce100us: 50,
     whammySmooth: 2, whammyDeadzone: 3,
-    bootModes: [0, 3, 2, 1, MODE_NONE],
-    cfgRev: 1,
+    bootModes: [0, 3, 2, 1, 4],
+    cfgRev: 2,
+    xinputType: 0, starDpadLeft: false, rgbStarPower: true,
+    ledType: 0, ledOrder: 0, ledClkPin: PIN_NONE, keys: [0x1e, 0x1f, 0x20, 0x21, 0x22, 0xe5, 0xe4, 0x4e, 0x29, 0x4e, 0x38],
     rgbEnabled: false, rgbBootFlash: true, rgbPin: PIN_NONE, rgbBrightness: 40, rgbEffect: 3, rgbSpeed: 5,
     ledMap: [0, 1, 2, 3, 4], colors: FRET_DEFAULT_COLORS.slice(),
   };
 }
 
-export const CFG_SIZE = 64;
-export const CFG_VERSION = 3;
+export const CFG_SIZE = 96;
+export const CFG_VERSION = 4;
 
 export function parseConfig(dv) {
   if (dv.getUint32(0, true) !== 0x43434159) throw new Error('Bad config magic');
@@ -102,7 +146,9 @@ export function parseConfig(dv) {
     whammySmooth: dv.getUint8(26), whammyDeadzone: dv.getUint8(27),
     bootModes,
     cfgRev: dv.getUint8(57),
-    rgbEnabled: !!(flags & 8), rgbBootFlash: !!(flags & 16),
+    rgbEnabled: !!(flags & 8), rgbBootFlash: !!(flags & 16), starDpadLeft: !!(flags & 32), rgbStarPower: !!(flags & 64),
+    xinputType: dv.getUint8(58), ledType: dv.getUint8(59), ledOrder: dv.getUint8(60), ledClkPin: dv.getUint8(61),
+    keys: Array.from({ length: 11 }, (_, i) => dv.getUint8(62 + i)),
     rgbPin: dv.getUint8(33), rgbBrightness: dv.getUint8(34), rgbEffect: dv.getUint8(35), rgbSpeed: dv.getUint8(36),
     ledMap: [0, 1, 2, 3, 4].map((i) => dv.getUint8(37 + i)),
     colors: [0, 1, 2, 3, 4].map((i) => rgbToHex(dv.getUint8(42 + i * 3), dv.getUint8(43 + i * 3), dv.getUint8(44 + i * 3))),
@@ -120,7 +166,7 @@ export function serializeConfig(c) {
   dv.setUint16(16, c.whammyMin, true);
   dv.setUint16(18, c.whammyMax, true);
   dv.setUint8(20, c.tiltPin);
-  dv.setUint8(21, (c.btEnabled ? 1 : 0) | (c.tiltEnabled ? 2 : 0) | (c.combinedStrum ? 4 : 0) | (c.rgbEnabled ? 8 : 0) | (c.rgbBootFlash ? 16 : 0));
+  dv.setUint8(21, (c.btEnabled ? 1 : 0) | (c.tiltEnabled ? 2 : 0) | (c.combinedStrum ? 4 : 0) | (c.rgbEnabled ? 8 : 0) | (c.rgbBootFlash ? 16 : 0) | (c.starDpadLeft ? 32 : 0) | (c.rgbStarPower ? 64 : 0));
   dv.setUint8(22, c.usbMode);
   dv.setUint8(23, c.debounceMode);
   dv.setUint16(24, c.debounce100us, true);
@@ -133,8 +179,13 @@ export function serializeConfig(c) {
   dv.setUint8(36, Math.max(1, Math.min(10, c.rgbSpeed)));
   c.ledMap.forEach((m, i) => dv.setUint8(37 + i, m));
   c.colors.forEach((col, i) => { const [r, g, b] = hexToRgb(col); dv.setUint8(42 + i * 3, r); dv.setUint8(43 + i * 3, g); dv.setUint8(44 + i * 3, b); });
-  dv.setUint8(57, c.cfgRev ?? 1);
-  dv.setUint32(60, crc32(new Uint8Array(buf, 0, 60)), true);
+  dv.setUint8(57, c.cfgRev ?? 2);
+  dv.setUint8(58, c.xinputType ?? 0);
+  dv.setUint8(59, c.ledType ?? 0);
+  dv.setUint8(60, c.ledOrder ?? 0);
+  dv.setUint8(61, c.ledClkPin ?? PIN_NONE);
+  (c.keys || []).forEach((k, i) => dv.setUint8(62 + i, k));
+  dv.setUint32(92, crc32(new Uint8Array(buf, 0, 92)), true);
   return buf;
 }
 

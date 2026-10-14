@@ -11,10 +11,15 @@
 #define REDOCTANE_VID    0x12BA
 #define PS3_GH_GUITAR_PID 0x0100
 #define PS3_RB_GUITAR_PID 0x0200   // Rock Band guitar (Santroller uses the same VID/PID)
+#define HARMONIX_VID      0x1BAD
+#define WII_RB_GUITAR_PID 0x0004
+#define HORI_VID          0x0F0D
+#define HORI_POKKEN_PID   0x0092
 #define IS_PS3_MODE(m) ((m) == MODE_PS3_GH || (m) == MODE_PS3_RB)
 
 #define ITF_PAD    0      // XInput or HID interface
 #define ITF_CONFIG 1      // WebUSB configuration interface (modes that have one)
+#define ITF_SECURITY 2    // Xbox 360 security interface (XInput mode)
 
 #define EP_PAD_IN  0x81
 #define EP_PAD_OUT 0x02
@@ -37,9 +42,14 @@
 #define XINPUT_REPORT_LEN 20
 #define PS3_REPORT_LEN    27
 #define HID_REPORT_LEN    7
+#define KEYBOARD_REPORT_LEN 8
+#define SWITCH_REPORT_LEN 8
+#define OGXBOX_REPORT_LEN 20
 
 extern uint8_t g_usb_mode;         // MODE_* currently running
 bool mode_has_config(uint8_t mode);
+uint8_t xinput_subtype(void);
+void usb_game_feedback(uint8_t command, uint8_t param);   // main.c: rumble-channel commands from games
 
 void usb_request_setup_reboot(void);                                    // main.c
 bool xinput_send(const uint8_t *report, uint16_t len);

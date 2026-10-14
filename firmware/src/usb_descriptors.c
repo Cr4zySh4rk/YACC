@@ -6,7 +6,10 @@
 
 uint8_t g_usb_mode = MODE_XINPUT;
 
-bool mode_has_config(uint8_t mode) { return !IS_PS3_MODE(mode); }
+// Modes that keep the WebUSB configuration interface. The console-facing modes (PS3, Wii, Switch,
+// original Xbox) must look exactly like the real controller, so they don't get one.
+bool mode_has_config(uint8_t mode) { return mode == MODE_XINPUT || mode == MODE_HID || mode == MODE_KEYBOARD; }
+uint8_t xinput_subtype(void) { return g_cfg.xinput_type == XI_ROCK_BAND ? 0x06 : 0x07; }   // guitar / guitar alternate (GH)
 
 // ================================================================ HID report descriptors
 // PS3 Guitar Hero guitar: same report descriptor Santroller uses (27 byte input report).
@@ -89,9 +92,34 @@ static const uint8_t desc_hid_generic[] = {
     HID_COLLECTION_END,
 };
 
+// Switch: HORIPAD / POKKEN layout (what GP2040-CE uses): 16 buttons, hat, 4 axes, vendor byte
+static const uint8_t desc_hid_switch[] = {
+    0x05, 0x01, 0x09, 0x05, 0xA1, 0x01, 0x15, 0x00, 0x25, 0x01, 0x35, 0x00, 0x45, 0x01, 0x75, 0x01,
+    0x95, 0x10, 0x05, 0x09, 0x19, 0x01, 0x29, 0x10, 0x81, 0x02, 0x05, 0x01, 0x25, 0x07, 0x46, 0x3B,
+    0x01, 0x75, 0x04, 0x95, 0x01, 0x65, 0x14, 0x09, 0x39, 0x81, 0x42, 0x65, 0x00, 0x95, 0x01, 0x81,
+    0x01, 0x26, 0xFF, 0x00, 0x46, 0xFF, 0x00, 0x09, 0x30, 0x09, 0x31, 0x09, 0x32, 0x09, 0x35, 0x75,
+    0x08, 0x95, 0x04, 0x81, 0x02, 0x06, 0x00, 0xFF, 0x09, 0x20, 0x95, 0x01, 0x81, 0x02, 0x0A, 0x21,
+    0x26, 0x95, 0x08, 0x91, 0x02, 0xC0,
+};
+
+// Boot-protocol keyboard (8 byte report: modifiers, reserved, 6 keys)
+static const uint8_t desc_hid_keyboard[] = { TUD_HID_REPORT_DESC_KEYBOARD() };
+
+static bool mode_is_ps3_layout(uint8_t m) { return IS_PS3_MODE(m) || m == MODE_WII_RB; }
+
 uint8_t const *tud_hid_descriptor_report_cb(uint8_t instance) {
     (void)instance;
-    return IS_PS3_MODE(g_usb_mode) ? desc_hid_ps3_gh : desc_hid_generic;   // RB and GH share the PS3 descriptor
+    if (mode_is_ps3_layout(g_usb_mode)) return desc_hid_ps3_gh;    // GH, RB and Wii RB share it
+    if (g_usb_mode == MODE_SWITCH) return desc_hid_switch;
+    if (g_usb_mode == MODE_KEYBOARD) return desc_hid_keyboard;
+    return desc_hid_generic;
+}
+
+static uint16_t hid_report_desc_len(void) {
+    if (mode_is_ps3_layout(g_usb_mode)) return sizeof(desc_hid_ps3_gh);
+    if (g_usb_mode == MODE_SWITCH) return sizeof(desc_hid_switch);
+    if (g_usb_mode == MODE_KEYBOARD) return sizeof(desc_hid_keyboard);
+    return sizeof(desc_hid_generic);
 }
 
 // ================================================================ device descriptor
@@ -113,74 +141,102 @@ uint8_t const *tud_descriptor_device_cb(void) {
     desc_device.bNumConfigurations = 1;
 
     switch (g_usb_mode) {
-        case MODE_PS3_GH:
-            desc_device.idVendor = REDOCTANE_VID;
-            desc_device.idProduct = PS3_GH_GUITAR_PID;
+        case MODE_PS3_GH: desc_device.idVendor = REDOCTANE_VID; desc_device.idProduct = PS3_GH_GUITAR_PID; break;
+        case MODE_PS3_RB: desc_device.idVendor = REDOCTANE_VID; desc_device.idProduct = PS3_RB_GUITAR_PID; break;
+        case MODE_WII_RB: desc_device.idVendor = HARMONIX_VID;  desc_device.idProduct = WII_RB_GUITAR_PID; break;
+        case MODE_HID:      desc_device.idProduct = 0x0002; break;
+        case MODE_KEYBOARD: desc_device.idProduct = 0x0003; break;
+        case MODE_SWITCH:
+            desc_device.idVendor = HORI_VID; desc_device.idProduct = HORI_POKKEN_PID;
+            desc_device.iSerialNumber = 0;
             break;
-        case MODE_PS3_RB:
-            desc_device.idVendor = REDOCTANE_VID;
-            desc_device.idProduct = PS3_RB_GUITAR_PID;
+        case MODE_OGXBOX:
+            desc_device.bcdUSB = 0x0110;
+            desc_device.idVendor = 0x045E; desc_device.idProduct = 0x0289; desc_device.bcdDevice = 0x0121;
+            desc_device.iManufacturer = desc_device.iProduct = desc_device.iSerialNumber = 0;
             break;
-        case MODE_HID:
-            desc_device.idProduct = 0x0002;
-            break;
-        default:
-            break;
+        default: break;
     }
     return (uint8_t const *)&desc_device;
 }
 
 // ================================================================ configuration
-#define XINPUT_SUBTYPE_GUITAR 0x06   // Rock Band style guitar layout
+#define XINPUT_IF_LEN   40
+#define SECURITY_IF_LEN 15
+#define HID_IF_LEN      32
+#define CONFIG_IF_LEN   9
 
-#define XINPUT_IF_LEN 40
-#define HID_IF_LEN    32
-#define CONFIG_IF_LEN 9
-
-static uint8_t desc_config[9 + XINPUT_IF_LEN + CONFIG_IF_LEN];
+static uint8_t desc_config[9 + XINPUT_IF_LEN + CONFIG_IF_LEN + SECURITY_IF_LEN + 16];
 
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
     (void)index;
-    uint8_t *p = desc_config;
+    uint8_t *p = desc_config + 9;
     bool cfg = mode_has_config(g_usb_mode);
-    uint8_t n_itf = cfg ? 2 : 1;
-    uint16_t body = (g_usb_mode == MODE_XINPUT ? XINPUT_IF_LEN : HID_IF_LEN) + (cfg ? CONFIG_IF_LEN : 0);
-
-    uint8_t hdr[] = {TUD_CONFIG_DESCRIPTOR(1, n_itf, 0, 9 + body, TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP, 100)};
-    memcpy(p, hdr, sizeof(hdr)); p += sizeof(hdr);
+    uint8_t n_itf = 0;
 
     if (g_usb_mode == MODE_XINPUT) {
         const uint8_t x[] = {
             9, TUSB_DESC_INTERFACE, ITF_PAD, 0, 2, 0xFF, 0x5D, 0x01, 0,
-            17, 0x21, 0x10, 0x01, XINPUT_SUBTYPE_GUITAR, 0x25, EP_PAD_IN, 0x14, 0x03, 0x03, 0x03, 0x04, 0x13, EP_PAD_OUT, 0x08, 0x03, 0x03,
+            17, 0x21, 0x10, 0x01, xinput_subtype(), 0x25, EP_PAD_IN, 0x14, 0x03, 0x03, 0x03, 0x04, 0x13, EP_PAD_OUT, 0x08, 0x03, 0x03,
             7, TUSB_DESC_ENDPOINT, EP_PAD_IN, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(0x20), 1,
             7, TUSB_DESC_ENDPOINT, EP_PAD_OUT, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(0x20), 8,
         };
-        memcpy(p, x, sizeof(x)); p += sizeof(x);
+        memcpy(p, x, sizeof(x)); p += sizeof(x); n_itf++;
+    } else if (g_usb_mode == MODE_OGXBOX) {
+        const uint8_t x[] = {
+            9, TUSB_DESC_INTERFACE, ITF_PAD, 0, 2, 0x58, 0x42, 0x00, 0,
+            7, TUSB_DESC_ENDPOINT, EP_PAD_IN, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(32), 4,
+            7, TUSB_DESC_ENDPOINT, EP_PAD_OUT, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(32), 4,
+        };
+        memcpy(p, x, sizeof(x)); p += sizeof(x); n_itf++;
+    } else if (g_usb_mode == MODE_KEYBOARD) {
+        const uint8_t h[] = {TUD_HID_DESCRIPTOR(ITF_PAD, 0, HID_ITF_PROTOCOL_KEYBOARD, hid_report_desc_len(), EP_PAD_IN, 16, 1)};
+        memcpy(p, h, sizeof(h)); p += sizeof(h); n_itf++;
     } else {
-        uint16_t rlen = IS_PS3_MODE(g_usb_mode) ? sizeof(desc_hid_ps3_gh) : sizeof(desc_hid_generic);
-        const uint8_t h[] = {TUD_HID_INOUT_DESCRIPTOR(ITF_PAD, 0, HID_ITF_PROTOCOL_NONE, rlen, EP_PAD_OUT, EP_PAD_IN, 64, 1)};
-        memcpy(p, h, sizeof(h)); p += sizeof(h);
+        const uint8_t h[] = {TUD_HID_INOUT_DESCRIPTOR(ITF_PAD, 0, HID_ITF_PROTOCOL_NONE, hid_report_desc_len(), EP_PAD_OUT, EP_PAD_IN, 64, 1)};
+        memcpy(p, h, sizeof(h)); p += sizeof(h); n_itf++;
     }
     if (cfg) {
         const uint8_t c[] = {9, TUSB_DESC_INTERFACE, ITF_CONFIG, 0, 0, 0xFF, 0x00, 0x00, 4};
-        memcpy(p, c, sizeof(c)); p += sizeof(c);
+        memcpy(p, c, sizeof(c)); p += sizeof(c); n_itf++;
     }
+    if (g_usb_mode == MODE_XINPUT) {
+        // Xbox 360 security interface: the console runs its XSM3 challenge through this (see usb_drivers.c)
+        const uint8_t sec[] = {9, TUSB_DESC_INTERFACE, ITF_SECURITY, 0, 0, 0xFF, 0xFD, 0x13, 5,
+                               6, 0x41, 0x00, 0x01, 0x01, 0x03};
+        memcpy(p, sec, sizeof(sec)); p += sizeof(sec); n_itf++;
+    }
+    uint16_t total = (uint16_t)(p - desc_config);
+    uint8_t attr = (g_usb_mode == MODE_SWITCH) ? 0x80 : (uint8_t)(0x80 | TUSB_DESC_CONFIG_ATT_REMOTE_WAKEUP);
+    uint8_t power = (g_usb_mode == MODE_SWITCH) ? 0xFA : 50;
+    uint8_t hdr[] = {9, TUSB_DESC_CONFIGURATION, U16_TO_U8S_LE(total), n_itf, 1, 0, attr, power};
+    memcpy(desc_config, hdr, sizeof(hdr));
     return desc_config;
 }
 
 // ================================================================ BOS (WebUSB + MS OS 2.0)
-#define MS_OS_20_DESC_LEN 0xB2
-#define BOS_TOTAL_LEN (TUD_BOS_DESC_LEN + TUD_BOS_WEBUSB_DESC_LEN + TUD_BOS_MICROSOFT_OS_DESC_LEN)
+// MS OS 2.0 set: config interface -> WinUSB (+ DeviceInterfaceGUID for the browser),
+// and in XInput mode the Xbox 360 security interface -> WinUSB as well, so Windows shows no unknown device.
+#define MS_OS_HDR_LEN  0x0A
+#define MS_OS_CFG_LEN  0x08
+#define MS_OS_FN_CFG   (0x08 + 0x14 + 0x84)
+#define MS_OS_FN_SEC   (0x08 + 0x14)
 
-static const uint8_t desc_bos[] = {
-    TUD_BOS_DESCRIPTOR(BOS_TOTAL_LEN, 2),
-    TUD_BOS_WEBUSB_DESCRIPTOR(VREQ_WEBUSB, 1),
-    TUD_BOS_MS_OS_20_DESCRIPTOR(MS_OS_20_DESC_LEN, VREQ_MS_OS),
-};
+static uint16_t ms_os_len(void) {
+    return MS_OS_HDR_LEN + MS_OS_CFG_LEN + MS_OS_FN_CFG + (g_usb_mode == MODE_XINPUT ? MS_OS_FN_SEC : 0);
+}
+
+static uint8_t desc_bos[TUD_BOS_DESC_LEN + TUD_BOS_WEBUSB_DESC_LEN + TUD_BOS_MICROSOFT_OS_DESC_LEN];
 
 uint8_t const *tud_descriptor_bos_cb(void) {
-    return mode_has_config(g_usb_mode) ? desc_bos : NULL;
+    if (!mode_has_config(g_usb_mode)) return NULL;
+    const uint8_t b[] = {
+        TUD_BOS_DESCRIPTOR(sizeof(desc_bos), 2),
+        TUD_BOS_WEBUSB_DESCRIPTOR(VREQ_WEBUSB, 1),
+        TUD_BOS_MS_OS_20_DESCRIPTOR(ms_os_len(), VREQ_MS_OS),
+    };
+    memcpy(desc_bos, b, sizeof(desc_bos));
+    return desc_bos;
 }
 
 // Landing page: Chrome offers to open this when the controller is plugged in. Scheme 1 = https://
@@ -196,41 +252,44 @@ const uint8_t *yacc_webusb_url_desc(uint16_t *len) {
     return d;
 }
 
-// MS OS 2.0 descriptor set: binds the config interface (1) to WinUSB so the browser can open it.
 const uint8_t *yacc_ms_os_desc(uint16_t *len) {
-    static uint8_t d[MS_OS_20_DESC_LEN];
-    static bool built = false;
-    if (!built) {
-        uint8_t *p = d;
-        #define W16(v) do { *p++ = (uint8_t)((v) & 0xFF); *p++ = (uint8_t)(((v) >> 8) & 0xFF); } while (0)
-        W16(0x000A); W16(0x0000);                              // set header
-        *p++ = 0x00; *p++ = 0x00; *p++ = 0x03; *p++ = 0x06;    // Windows 8.1+
-        W16(MS_OS_20_DESC_LEN);
-        W16(0x0008); W16(0x0001); *p++ = 0; *p++ = 0; W16(MS_OS_20_DESC_LEN - 0x0A);                       // configuration subset
-        W16(0x0008); W16(0x0002); *p++ = ITF_CONFIG; *p++ = 0; W16(MS_OS_20_DESC_LEN - 0x0A - 0x08);      // function subset
-        W16(0x0014); W16(0x0003);                                                                          // compatible id
+    static uint8_t d[MS_OS_HDR_LEN + MS_OS_CFG_LEN + MS_OS_FN_CFG + MS_OS_FN_SEC];
+    uint16_t total = ms_os_len();
+    uint8_t *p = d;
+    #define W16(v) do { *p++ = (uint8_t)((v) & 0xFF); *p++ = (uint8_t)(((v) >> 8) & 0xFF); } while (0)
+    W16(0x000A); W16(0x0000);                              // set header
+    *p++ = 0x00; *p++ = 0x00; *p++ = 0x03; *p++ = 0x06;    // Windows 8.1+
+    W16(total);
+    W16(0x0008); W16(0x0001); *p++ = 0; *p++ = 0; W16(total - MS_OS_HDR_LEN);                 // configuration subset
+    W16(0x0008); W16(0x0002); *p++ = ITF_CONFIG; *p++ = 0; W16(MS_OS_FN_CFG);                  // function subset: config
+    W16(0x0014); W16(0x0003);                                                                  // compatible id
+    memcpy(p, "WINUSB\0\0", 8); p += 8;
+    memset(p, 0, 8); p += 8;
+    W16(0x0084); W16(0x0004); W16(0x0007); W16(0x002A);                                        // DeviceInterfaceGUIDs
+    const char *name = "DeviceInterfaceGUIDs";
+    for (int i = 0; i < 20; i++) { *p++ = (uint8_t)name[i]; *p++ = 0; }
+    *p++ = 0; *p++ = 0;
+    W16(0x0050);
+    const char *guid = "{B7E2F0A1-4C3D-4E5F-9A6B-7C8D9E0F1A2B}";
+    for (int i = 0; i < 38; i++) { *p++ = (uint8_t)guid[i]; *p++ = 0; }
+    *p++ = 0; *p++ = 0;
+    *p++ = 0; *p++ = 0;
+    if (g_usb_mode == MODE_XINPUT) {
+        W16(0x0008); W16(0x0002); *p++ = ITF_SECURITY; *p++ = 0; W16(MS_OS_FN_SEC);           // function subset: security
+        W16(0x0014); W16(0x0003);
         memcpy(p, "WINUSB\0\0", 8); p += 8;
         memset(p, 0, 8); p += 8;
-        W16(0x0084); W16(0x0004); W16(0x0007); W16(0x002A);                                                // DeviceInterfaceGUIDs
-        const char *name = "DeviceInterfaceGUIDs";
-        for (int i = 0; i < 20; i++) { *p++ = (uint8_t)name[i]; *p++ = 0; }
-        *p++ = 0; *p++ = 0;
-        W16(0x0050);
-        const char *guid = "{B7E2F0A1-4C3D-4E5F-9A6B-7C8D9E0F1A2B}";
-        for (int i = 0; i < 38; i++) { *p++ = (uint8_t)guid[i]; *p++ = 0; }
-        *p++ = 0; *p++ = 0;
-        *p++ = 0; *p++ = 0;
-        #undef W16
-        built = true;
     }
-    *len = MS_OS_20_DESC_LEN;
+    #undef W16
+    *len = total;
     return d;
 }
 
 // ================================================================ strings
-enum { STR_LANG = 0, STR_MANUF, STR_PRODUCT, STR_SERIAL, STR_CONFIG };
+enum { STR_LANG = 0, STR_MANUF, STR_PRODUCT, STR_SERIAL, STR_CONFIG, STR_SECURITY };
 
-static uint16_t desc_str[40];
+static uint16_t desc_str[100];
+static const char str_xb360_auth[] = "Xbox Security Method 3, Version 1.00, \xa9 2005 Microsoft Corporation. All rights reserved.";
 
 uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
     (void)langid;
@@ -243,20 +302,29 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
         chr_count = 1;
     } else {
         switch (index) {
-            case STR_MANUF:   s = g_usb_mode == MODE_PS3_GH ? "RedOctane" : g_usb_mode == MODE_PS3_RB ? "Harmonix" : "YAGCC"; break;
+            case STR_MANUF:
+                s = g_usb_mode == MODE_PS3_GH ? "RedOctane"
+                  : g_usb_mode == MODE_PS3_RB ? "Harmonix"
+                  : g_usb_mode == MODE_WII_RB ? "Licensed by Nintendo of America "
+                  : g_usb_mode == MODE_SWITCH ? "HORI CO.,LTD." : "YAGCC";
+                break;
             case STR_PRODUCT:
                 s = g_usb_mode == MODE_PS3_GH ? "Guitar Hero3 for PlayStation (R) 3"
                   : g_usb_mode == MODE_PS3_RB ? "Harmonix Guitar for PlayStation(R)3"
+                  : g_usb_mode == MODE_WII_RB ? "Harmonix Guitar for Nintendo Wii"
+                  : g_usb_mode == MODE_SWITCH ? "POKKEN CONTROLLER"
                   : g_usb_mode == MODE_HID    ? "YAGCC Guitar (HID)"
+                  : g_usb_mode == MODE_KEYBOARD ? "YAGCC Guitar (Keyboard)"
                                               : "YAGCC Guitar Controller";
                 break;
-            case STR_SERIAL:  pico_get_unique_board_id_string(serial, sizeof(serial)); s = serial; break;
-            case STR_CONFIG:  s = "YAGCC Configuration"; break;
+            case STR_SERIAL:   pico_get_unique_board_id_string(serial, sizeof(serial)); s = serial; break;
+            case STR_CONFIG:   s = "YAGCC Configuration"; break;
+            case STR_SECURITY: s = str_xb360_auth; break;
             default: return NULL;
         }
-        chr_count = (uint8_t)strlen(s);
-        if (chr_count > 38) chr_count = 38;
-        for (uint8_t i = 0; i < chr_count; i++) desc_str[1 + i] = s[i];
+        size_t n = strlen(s);
+        chr_count = (uint8_t)(n > 98 ? 98 : n);
+        for (uint8_t i = 0; i < chr_count; i++) desc_str[1 + i] = (uint8_t)s[i];
     }
     desc_str[0] = (uint16_t)((TUSB_DESC_STRING << 8) | (2 * chr_count + 2));
     return desc_str;

@@ -1,10 +1,12 @@
 import {
   FUNCS, FUNC_LABEL, PIN_NONE, NUM_DIGITAL_PINS, NUM_FRETS, MODES, MODE_NONE, BOARDS,
   DEBOUNCE_MODES, defaultConfig, whammyValue, isPressed, EFFECTS, RGB_PRESETS, FRET_DEFAULT_COLORS, NUM_LEDS,
+  LED_TYPES, LED_ORDERS, KEY_SLOTS, KEYS, KEY_PRESETS,
 } from './protocol.js?v=dev';
 import { YaccDevice, webusbSupported } from './usb.js?v=dev';
 import { PinDetector, WhammyCalibrator } from './detect.js?v=dev';
 import { createGuitar } from './guitar.js?v=dev';
+import { renderHardware, renderCompat } from './pages.js?v=dev';
 
 const $ = (s, r = document) => r.querySelector(s);
 const diff8 = (x, y) => (x - y + 256) & 0xff;
@@ -534,8 +536,17 @@ function buildLights() {
   $('#colRows').innerHTML = [0, 1, 2, 3, 4].map((f) => `<div class="col-row"><span><span class="fretdot" style="background:${FRET_DEFAULT_COLORS[f]}"></span>${funcName(f)} fret</span>
       <input type="color" data-col="${f}"><span class="hex" data-hex="${f}"></span></div>`).join('');
 
+  $('#ledType').innerHTML = LED_TYPES.map((t) => `<option value="${t.id}">${t.name}</option>`).join('');
+  $('#ledOrder').innerHTML = LED_ORDERS.map((o, i) => `<option value="${i}">${o}</option>`).join('');
+  $('#ledClk').innerHTML = '<option value="255">Choose pin…</option>' +
+    [...Array(NUM_DIGITAL_PINS).keys()].filter((p) => !used.has(p) || p === c.ledClkPin).map((p) => `<option value="${p}">GP${p}</option>`).join('');
   const refresh = () => {
     $on.checked = c.rgbEnabled;
+    $('#ledType').value = String(c.ledType); $('#ledTypeDesc').textContent = (LED_TYPES[c.ledType] || LED_TYPES[0]).desc;
+    $('#ledOrder').value = String(c.ledOrder); $('#ledClk').value = String(c.ledClkPin);
+    $('#ledOrderRow').style.display = c.ledType === 0 ? '' : 'none';
+    $('#ledClkRow').style.display = c.ledType === 2 ? '' : 'none';
+    $('#rgbSp').checked = !!c.rgbStarPower;
     $pin.value = String(c.rgbPin);
     $bri.value = c.rgbBrightness; $('#rgbBriVal').textContent = c.rgbBrightness + ' / 255';
     $('#rgbFlash').checked = c.rgbBootFlash;
@@ -551,6 +562,10 @@ function buildLights() {
 
   $on.onchange = () => { c.rgbEnabled = $on.checked; live(); };
   $pin.onchange = () => { c.rgbPin = +$pin.value; live(); };
+  $('#ledType').onchange = (e) => { c.ledType = +e.target.value; live(); };
+  $('#ledOrder').onchange = (e) => { c.ledOrder = +e.target.value; live(); };
+  $('#ledClk').onchange = (e) => { c.ledClkPin = +e.target.value; live(); };
+  $('#rgbSp').onchange = (e) => { c.rgbStarPower = e.target.checked; live(); };
   $bri.oninput = () => { c.rgbBrightness = +$bri.value; live(); };
   $('#rgbFlash').onchange = (e) => { c.rgbBootFlash = e.target.checked; live(); };
   $spd.oninput = () => { c.rgbSpeed = +$spd.value; live(); };
@@ -579,6 +594,25 @@ function buildModes() {
   $('#bootTable').innerHTML = [0, 1, 2, 3, 4].map((i) => `<div><label class="muted"><span class="fretdot" style="background:${FRET_COLORS[i]}"></span>Hold ${funcName(i)}</label><br>
       <select data-fret="${i}">${opts(c.bootModes[i])}</select></div>`).join('');
   $('#bootTable').onchange = (e) => { c.bootModes[+e.target.dataset.fret] = +e.target.value; };
+
+  // XInput flavour
+  const XI = [{ id: 0, name: 'Guitar Hero guitar', desc: 'XInput subtype 7 (guitar alternate), like the Xbox 360 Les Paul / World Tour guitars.' },
+              { id: 1, name: 'Rock Band guitar', desc: 'XInput subtype 6, like the Xbox 360 Rock Band Stratocaster.' }];
+  $('#xiType').innerHTML = XI.map((x) => `<label><input type="radio" name="xi" value="${x.id}" ${c.xinputType === x.id ? 'checked' : ''}><div><b>${x.name}</b><br><span class="muted">${x.desc}</span></div></label>`).join('');
+  $('#xiType').onchange = (e) => { c.xinputType = +e.target.value; };
+  $('#starLeft').checked = !!c.starDpadLeft;
+  $('#starLeft').onchange = (e) => { c.starDpadLeft = e.target.checked; };
+
+  // keyboard bindings
+  const keyOpts = (sel) => Object.entries(KEYS).sort((x, y) => (+x[0] === 0 ? -1 : +y[0] === 0 ? 1 : 0))
+    .map(([code, name]) => `<option value="${code}" ${+code === sel ? 'selected' : ''}>${name}</option>`).join('');
+  const drawKeys = () => {
+    $('#keyMap').innerHTML = KEY_SLOTS.map((slot, i) => `<label class="muted">${slot}</label><select data-key="${i}">${keyOpts(c.keys[i])}</select>`).join('');
+  };
+  $('#keyPresets').innerHTML = KEY_PRESETS.map((p, i) => `<button class="preset" data-kp="${i}" title="${p.desc}"><span style="margin:0">${p.name}</span></button>`).join('');
+  $('#keyPresets').onclick = (e) => { const b = e.target.closest('[data-kp]'); if (b) { c.keys = KEY_PRESETS[+b.dataset.kp].keys.slice(); drawKeys(); toast('Loaded ' + KEY_PRESETS[+b.dataset.kp].name); } };
+  $('#keyMap').onchange = (e) => { const i = e.target.dataset.key; if (i !== undefined) c.keys[+i] = +e.target.value; };
+  drawKeys();
   $('#saveModes').onclick = async () => {
     try {
       await state.dev.setConfig(c); await state.dev.save(); await sleep(400);
@@ -595,6 +629,10 @@ const BOARD_LIST = [
   { id: 'pico_w', arch: 'rp2040', name: 'Raspberry Pi Pico W', help: 'Official Pico W with the CYW43 radio (Bluetooth capable).' },
   { id: 'pico2', arch: 'rp2350', name: 'Raspberry Pi Pico 2', help: 'Official Pico 2 (RP2350).' },
   { id: 'pico2_w', arch: 'rp2350', name: 'Raspberry Pi Pico 2 W', help: 'Official Pico 2 W (RP2350, Bluetooth capable).' },
+  { id: 'waveshare_rp2040_zero', arch: 'rp2040', name: 'Waveshare RP2040-Zero', help: 'Tiny USB-C board; fits inside guitar bodies. Its onboard RGB LED is on GP16 — avoid that pin for buttons.' },
+  { id: 'waveshare_rp2040_one', arch: 'rp2040', name: 'Waveshare RP2040-One', help: 'USB-A plug board with the same pinout as the Zero.' },
+  { id: 'sparkfun_promicro', arch: 'rp2040', name: 'SparkFun Pro Micro RP2040', help: 'Drop-in replacement footprint for old ATmega32U4 Pro Micro builds. Onboard RGB LED on GP25.' },
+  { id: 'adafruit_kb2040', arch: 'rp2040', name: 'Adafruit KB2040', help: 'Pro Micro footprint with USB-C. Onboard NeoPixel on GP17.' },
 ];
 
 function initFlash() {
@@ -645,7 +683,9 @@ async function directFlash(url, name) {
 // ------------------------------------------------------------------ controllers running in PS3 / HID mode
 // PS3 mode must look exactly like a real PS3 guitar, so it has no WebUSB config interface; HID mode has one
 // but the browser asks for permission separately for each mode. WebHID lets us find both and help out.
-const HID_FILTERS = [{ vendorId: 0x12ba, productId: 0x0100 }, { vendorId: 0x12ba, productId: 0x0200 }, { vendorId: 0x1209, productId: 0x0002 }];
+const HID_FILTERS = [{ vendorId: 0x12ba, productId: 0x0100 }, { vendorId: 0x12ba, productId: 0x0200 }, { vendorId: 0x1bad, productId: 0x0004 },
+  { vendorId: 0x0f0d, productId: 0x0092 }, { vendorId: 0x1209, productId: 0x0002 }, { vendorId: 0x1209, productId: 0x0003 }];
+const canRestart = (d) => d.vendorId === 0x12ba || d.vendorId === 0x1bad;   // modes whose HID descriptor has the feature report
 const isOurHid = (d) => HID_FILTERS.some((f) => f.vendorId === d.vendorId && f.productId === d.productId);
 
 async function restartToSetup(dev) {
@@ -680,15 +720,19 @@ function showOtherMode(dev) {
   const box = $('#otherMode');
   if (!box) return;
   if (!dev || state.dev) { box.innerHTML = ''; return; }
-  if (dev.vendorId === 0x12ba) {
+  if (dev.vendorId === 0x0f0d) {
+    box.innerHTML = `<div class="notice info" style="text-align:left"><b>Found your controller in Switch mode.</b>
+        That mode has no configuration channel. Unplug it and hold <b>Plus</b> while plugging it back in to configure it.</div>`;
+  } else if (canRestart(dev)) {
     box.innerHTML = `<div class="notice info" style="text-align:left">
-        <b>Found your controller in ${dev.productId === 0x0200 ? 'PS3 Rock Band' : 'PS3 Guitar Hero'} mode.</b> That mode has no configuration channel, because it has to look exactly like a real PS3 guitar.
+        <b>Found your controller in ${dev.vendorId === 0x1bad ? 'Wii Rock Band' : dev.productId === 0x0200 ? 'PS3 Rock Band' : 'PS3 Guitar Hero'} mode.</b> That mode has no configuration channel, because it has to look exactly like a real PS3 guitar.
         <div class="row" style="margin-top:10px"><button class="btn primary small" id="toSetup">Restart it in setup mode</button>
         <span class="muted" style="font-size:12px">or unplug it and hold <b>Plus</b> while plugging it back in</span></div></div>`;
     $('#toSetup').onclick = () => restartToSetup(dev);
   } else {
-    box.innerHTML = `<div class="notice info" style="text-align:left"><b>Found your controller in HID mode.</b>
-        The browser asks for permission once per mode: press <b>Connect controller</b> and pick <b>YAGCC Guitar (HID)</b>.</div>`;
+    const kb = dev.productId === 0x0003;
+    box.innerHTML = `<div class="notice info" style="text-align:left"><b>Found your controller in ${kb ? 'keyboard' : 'HID'} mode.</b>
+        The browser asks for permission once per mode: press <b>Connect controller</b> and pick <b>YAGCC Guitar (${kb ? 'Keyboard' : 'HID'})</b>.</div>`;
   }
 }
 
@@ -703,7 +747,7 @@ $('#findHid').onclick = async (e) => {
   try {
     const [d] = await navigator.hid.requestDevice({ filters: HID_FILTERS });
     if (!d) { toast('No controller in PS3 or HID mode was picked.'); return; }
-    if (d.vendorId === 0x12ba) restartToSetup(d);   // you picked it to configure it: switch straight away
+    if (canRestart(d)) restartToSetup(d);   // you picked it to configure it: switch straight away
     else showOtherMode(d);
   } catch (err) { toast('Search failed: ' + err.message, 'bad'); }
 };
@@ -713,6 +757,8 @@ if ('hid' in navigator) {
   scanHid();
 }
 
+renderHardware($('#hwList'));
+renderCompat($('#compatList'));
 $('#connectBtn').onclick = pickAndConnect;
 $('#connectBtn2').onclick = pickAndConnect;
 initFlash();
