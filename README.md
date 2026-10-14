@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/brand/yagcc-logo.png" alt="YAGCC — Yet Another Guitar Controller Configurator" width="420"></p>
+
 # YAGCC — Yet Another Guitar Controller Configurator
 
 A browser-based configurator **and** matching firmware for DIY guitar controllers on the Raspberry Pi Pico family.

@@ -36,8 +36,8 @@ header.top {
 }
 .top-inner { max-width: 1180px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 24px; }
 .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .08em; font-size: 18px; }
-.logo i { width: 28px; height: 28px; border-radius: 9px; display: inline-block;
-  background: conic-gradient(from 210deg, var(--green), var(--yellow), var(--orange), var(--red), var(--blue), var(--green)); box-shadow: 0 0 22px rgba(124,140,255,.5); }
+.logo img { width: 34px; height: 34px; border-radius: 8px; display: block; }
+.hero-logo { display: block; width: min(360px, 70vw); height: auto; margin: 4px auto 8px; }
 nav { display: flex; gap: 4px; flex: 1; }
 nav button { background: none; border: 0; color: var(--muted); padding: 8px 14px; border-radius: 10px; font: inherit; font-weight: 600; cursor: pointer; }
 nav button:hover { color: var(--text); background: var(--surface); }
