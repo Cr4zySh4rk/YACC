@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>YAGCC · Yet Another Guitar Controller Configurator</title>
   <meta name="description" content="Flash, configure and tune your DIY guitar controller straight from the browser.">
-  <meta name="theme-color" content="#090b10">
+  <meta name="theme-color" content="#06080e">
   <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
   <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
@@ -14,13 +14,16 @@
   <meta property="og:image" content="https://cr4zysh4rk.github.io/YAGCC/img/og.jpg">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,700&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
   <link rel="stylesheet" href="css/style.css?v=dev">
 </head>
 <body>
 <header class="top">
   <div class="top-inner">
-    <div class="logo"><img src="img/icon-96.png" alt="" width="34" height="34">YAGCC</div>
-    <nav id="nav">
+    <a class="brand" href="#" data-goto="flash" aria-label="YAGCC home"><img src="img/icon-96.png" alt="" width="32" height="32"><span>YAGCC</span></a>
+    <nav id="nav" aria-label="Sections">
       <button data-view="flash" class="active">Flash</button>
       <button data-view="setup">Setup</button>
       <button data-view="tune">Tune</button>
@@ -29,222 +32,227 @@
       <button data-view="hardware">Hardware</button>
       <button data-view="compat">Compatibility</button>
     </nav>
-    <span class="pill" id="connPill"><span class="dot"></span><span id="connText">Not connected</span></span>
+    <div class="conn" id="connPill" role="status"><span class="led"></span><span id="connText">Not connected</span></div>
   </div>
 </header>
 
 <main>
   <!-- ================= FLASH ================= -->
   <section class="view active" id="view-flash">
-    <img class="hero-logo" src="img/logo.webp" alt="YAGCC — Yet Another Guitar Controller Configurator" width="360" height="364">
-    <h1>Get your Pico ready</h1>
-    <p class="lead">Wipe whatever firmware is on the board, install YAGCC, then plug it in. The page will find your controller and walk you through wiring it up — no matter which pins you used.</p>
-
-    <div id="browserWarn" class="notice bad" style="display:none;margin-bottom:18px"></div>
-
-    <div class="card" style="margin-bottom:18px">
-      <div class="row" style="justify-content:space-between">
-        <div>
-          <h2>Which board do you have?</h2>
-          <div class="muted" id="boardHelp"></div>
+    <div class="hero">
+      <div class="hero-copy">
+        <h1 class="display">Set up your DIY guitar controller in the browser</h1>
+        <p class="lead">Flash a Raspberry Pi Pico, press each button twice, and play. There's nothing to install and nothing to compile, whichever pins you wired.</p>
+        <div class="row">
+          <button class="btn primary lg" id="connectBtn" data-connect>Connect controller</button>
+          <a class="btn lg" href="#install" id="toInstall">Install firmware first</a>
         </div>
+        <div id="browserWarn" class="notice bad" style="display:none"></div>
+      </div>
+      <img class="hero-logo" src="img/logo.webp" alt="YAGCC — Yet Another Guitar Controller Configurator" width="400" height="404">
+    </div>
+
+    <h2 class="section-title" id="install">Install the firmware</h2>
+    <ol class="flow">
+      <li>
+        <h3>Pick your board</h3>
         <select id="boardSel" aria-label="Board"></select>
-      </div>
-    </div>
-
-    <div class="steps">
-      <div class="card step">
-        <h2>Enter bootloader mode</h2>
-        <p class="muted">Unplug the Pico, hold the <b>BOOTSEL</b> button, plug it in, then let go. A drive called <code>RPI-RP2</code> (or <code>RP2350</code>) appears on your computer.</p>
-      </div>
-      <div class="card step">
-        <h2>Nuke the old firmware <span class="muted" style="font-weight:400">(optional but recommended)</span></h2>
-        <p class="muted">Erases the whole flash — old firmware (Santroller, GP2040, …) and any stored settings — and restores the board to a clean state. The board reboots straight back into bootloader mode when it is done.</p>
+        <p class="dim small" id="boardHelp"></p>
+      </li>
+      <li>
+        <h3>Enter bootloader mode</h3>
+        <p class="dim">Unplug the board, hold <b>BOOTSEL</b>, plug it back in and let go. A drive called <code>RPI-RP2</code> or <code>RP2350</code> appears.</p>
+      </li>
+      <li>
+        <h3>Copy the firmware</h3>
+        <p class="dim">Drop the file onto that drive. The board restarts as a guitar controller.</p>
         <div class="row">
-          <a class="btn" id="dlNuke" download>⬇ Download flash nuke</a>
-          <button class="btn" id="directNuke">Flash directly…</button>
+          <a class="btn primary" id="dlFw" download>Download firmware</a>
+          <button class="btn" id="directFw" title="Writes the file to the drive for you (Chrome, Edge)">Write to drive</button>
         </div>
-      </div>
-      <div class="card step">
-        <h2>Install the YAGCC firmware</h2>
-        <p class="muted">Copy the firmware to the bootloader drive. The board restarts by itself and shows up as a guitar controller.</p>
-        <div class="row">
-          <a class="btn primary" id="dlFw" download>⬇ Download firmware</a>
-          <button class="btn" id="directFw">Flash directly…</button>
-        </div>
-        <p class="muted" style="font-size:13px;margin:12px 0 0">“Flash directly” (Chrome / Edge) writes the file for you — just pick the bootloader drive when asked.</p>
-      </div>
-      <div class="card step">
-        <h2>Connect &amp; configure</h2>
-        <p class="muted">Once the firmware is on, the controller is detected here automatically. If your browser asks for permission the first time, pick <b>YAGCC Guitar Controller</b>.</p>
-        <button class="btn primary" id="connectBtn">Connect controller</button>
-      </div>
-    </div>
-    <p id="flashMsg" class="muted" style="margin-top:14px"></p>
+        <details class="more">
+          <summary>Coming from Santroller or GP2040-CE?</summary>
+          <p class="dim small">Wipe the board first with the flash nuke. It erases old firmware and settings, then drops back into bootloader mode.</p>
+          <div class="row"><a class="btn small" id="dlNuke" download>Download flash nuke</a><button class="btn small" id="directNuke">Write to drive</button></div>
+        </details>
+      </li>
+      <li>
+        <h3>Connect</h3>
+        <p class="dim">Click connect and pick <b>YAGCC Guitar Controller</b>. Setup starts right away.</p>
+        <button class="btn" data-connect>Connect controller</button>
+      </li>
+    </ol>
+    <p id="flashMsg" class="dim"></p>
   </section>
 
   <!-- ================= SETUP ================= -->
   <section class="view" id="view-setup">
-    <div id="setupGate" class="card" style="text-align:center;padding:50px 20px">
-      <h2>No controller connected</h2>
-      <p class="muted">Plug in a Pico running YAGCC firmware and connect it to start the guided setup.</p>
-      <button class="btn primary" id="connectBtn2">Connect controller</button>
-      <p class="muted" style="font-size:13px;margin-top:14px">Controller running in a console mode (PS3, Wii, Switch) or as an HID gamepad / keyboard? <a href="#" id="findHid">Find it</a> — PS3 and Wii modes are restarted in setup mode for you.</p>
-      <div id="otherMode" style="margin:14px auto 0;max-width:560px"></div>
+    <div id="setupGate" class="gate">
+      <h1 class="display">No controller connected</h1>
+      <p class="dim">Plug in a board running YAGCC and connect it to start the guided setup.</p>
+      <button class="btn primary lg" id="connectBtn2" data-connect>Connect controller</button>
+      <p class="dim small">Running in a console mode or as a gamepad or keyboard? <a href="#" id="findHid">Find it</a> and YAGCC restarts PS3 and Wii modes into setup for you.</p>
+      <div id="otherMode"></div>
     </div>
-    <div class="setup" id="setupMain" style="display:none">
-      <div class="card stage" id="stage"></div>
-      <div class="card" id="stepCard"></div>
+    <div id="setupMain" style="display:none">
+      <div class="stage" id="stage"></div>
+      <div class="setup-grid">
+        <ol class="step-list" id="stepList" aria-label="Setup steps"></ol>
+        <div class="panel step-panel" id="stepCard"></div>
+      </div>
     </div>
   </section>
 
   <!-- ================= TUNE ================= -->
   <section class="view" id="view-tune">
-    <h1>Tune</h1>
-    <p class="lead">Changes apply instantly so you can feel them. Press <b>Save to controller</b> to keep them.</p>
-    <div id="tuneGate" class="card" style="text-align:center;padding:40px">Connect a controller first.</div>
-    <div class="grid two" id="tuneMain" style="display:none">
-      <div class="card stage" style="grid-column:1/-1"><div class="muted" style="margin:0 0 4px 8px">Live preview — press buttons and move the whammy to feel your changes</div><div id="tuneStage"></div></div>
-      <div class="card">
-        <h2>Button debounce</h2>
-        <p class="muted">Filters switch chatter so one press never counts twice. Presses register within ~0.2 ms and releases within ~1 ms; after each change the input is locked for the time below, then re-syncs to where the contact settled. The same approach GP2040-CE uses, plus a tiny glitch filter borrowed from Santroller's hold-off.</p>
-        <div class="slider-row"><label for="debT">Debounce time</label><span class="val" id="debTVal"></span>
-          <input type="range" id="debT" min="0" max="250" step="5"></div>
-        <div class="row" id="debPresets" style="margin-top:12px;flex-wrap:wrap"></div>
-        <div class="opt"><div><h3>Combined strum debounce</h3><span class="muted">Strum up and down share one window, so a bouncing strum bar can't register both.</span></div>
-          <label class="switch"><input type="checkbox" id="combStrum"><i></i></label></div>
-      </div>
-      <div class="card">
-        <h2>Whammy</h2>
-        <div class="slider-row"><label for="wSmooth">Smoothing</label><span class="val" id="wSmoothVal"></span>
-          <input type="range" id="wSmooth" min="0" max="6" step="1"></div>
-        <div class="slider-row"><label for="wDead">Dead zone</label><span class="val" id="wDeadVal"></span>
-          <input type="range" id="wDead" min="0" max="30" step="1"></div>
-        <div class="opt"><div><h3>Invert direction</h3><span class="muted">Flip if the bar reads backwards.</span></div>
-          <label class="switch"><input type="checkbox" id="wInv"><i></i></label></div>
-      </div>
-      <div class="card" style="grid-column:1/-1">
-        <div class="row" style="justify-content:space-between">
-          <div class="muted" id="tuneState">Live changes — not saved yet.</div>
-          <div class="row"><button class="btn danger" id="resetCfg">Reset all</button><button class="btn primary" id="saveTune">Save to controller</button></div>
+    <div class="page-head"><h1 class="display">Tune</h1><p class="dim">Changes apply instantly so you can feel them. Save to keep them.</p></div>
+    <div id="tuneGate" class="gate small-gate"><p class="dim">Connect a controller to tune it.</p><button class="btn primary" data-connect>Connect controller</button></div>
+    <div id="tuneMain" style="display:none">
+      <div class="stage compact"><div id="tuneStage"></div></div>
+      <div class="cols">
+        <div class="panel">
+          <h2>Button debounce</h2>
+          <p class="dim">Stops one press from counting twice. Presses still register in about 0.2 ms; the time below is how long an input is locked after it changes.</p>
+          <div class="seg" id="debPresets" role="group" aria-label="Debounce presets"></div>
+          <div class="slider-row"><label for="debT">Lockout</label><output class="val" id="debTVal"></output>
+            <input type="range" id="debT" min="0" max="250" step="5"></div>
+          <div class="opt"><div><h3>Shared strum lockout</h3><p class="dim">Up and down share one window, so a bouncing strum bar can't fire both.</p></div>
+            <label class="switch"><input type="checkbox" id="combStrum"><i></i></label></div>
         </div>
+        <div class="panel">
+          <h2>Whammy</h2>
+          <div class="slider-row"><label for="wSmooth">Smoothing</label><output class="val" id="wSmoothVal"></output>
+            <input type="range" id="wSmooth" min="0" max="6" step="1"></div>
+          <div class="slider-row"><label for="wDead">Dead zone</label><output class="val" id="wDeadVal"></output>
+            <input type="range" id="wDead" min="0" max="30" step="1"></div>
+          <div class="opt"><div><h3>Invert direction</h3><p class="dim">Flip it if the bar reads backwards.</p></div>
+            <label class="switch"><input type="checkbox" id="wInv"><i></i></label></div>
+        </div>
+      </div>
+      <div class="savebar">
+        <span id="tuneState" class="dim">Live changes, not saved yet.</span>
+        <div class="row"><button class="btn quiet danger" id="resetCfg">Reset everything</button><button class="btn primary" id="saveTune">Save to controller</button></div>
       </div>
     </div>
   </section>
 
   <!-- ================= LIGHTS ================= -->
   <section class="view" id="view-lights">
-    <h1>Lights</h1>
-    <p class="lead">Five WS2812 (NeoPixel) LEDs on one data pin, one under each fret. Everything here applies live.</p>
-    <div id="lightsGate" class="card" style="text-align:center;padding:40px">Connect a controller first.</div>
-    <div class="grid two" id="lightsMain" style="display:none">
-      <div class="card stage" style="grid-column:1/-1"><div id="lightsStage"></div></div>
-      <div class="card">
-        <h2>RGB lighting</h2>
-        <div class="opt"><div><h3>Enable RGB LEDs</h3><span class="muted">Turn on if you wired a WS2812 chain to the controller.</span></div>
-          <label class="switch"><input type="checkbox" id="rgbOn"><i></i></label></div>
-        <div id="rgbOpts">
-          <div class="opt"><div><h3>Data pin</h3><span class="muted">The GPIO connected to the first LED's DIN.</span></div>
-            <select id="rgbPin"></select></div>
-          <div class="opt"><div><h3>LED type</h3><span class="muted" id="ledTypeDesc"></span></div>
-            <select id="ledType"></select></div>
-          <div class="opt" id="ledOrderRow"><div><h3>Colour order</h3><span class="muted">If red shows as green, try RGB.</span></div>
-            <select id="ledOrder"></select></div>
-          <div class="opt" id="ledClkRow"><div><h3>Clock pin</h3><span class="muted">APA102 CI / CLK input.</span></div>
-            <select id="ledClk"></select></div>
-          <div class="slider-row"><label for="rgbBri">Brightness</label><span class="val" id="rgbBriVal"></span>
-            <input type="range" id="rgbBri" min="0" max="255" step="1"></div>
-          <div class="muted" style="font-size:13px">0–255. Five LEDs at full white draw up to ~300 mA from USB; lower values run cooler and are easier on the eyes.</div>
-          <div class="opt"><div><h3>Star power glow</h3><span class="muted">When a game reports star power / overdrive (YARG over XInput), idle frets pulse cyan.</span></div>
-            <label class="switch"><input type="checkbox" id="rgbSp"><i></i></label></div>
-          <div class="opt"><div><h3>Show the mode on plug-in</h3><span class="muted">Flashes the fret LED that selects the running mode (green = XInput, blue = PS3, yellow = HID by default) for one second.</span></div>
-            <label class="switch"><input type="checkbox" id="rgbFlash"><i></i></label></div>
+    <div class="page-head"><h1 class="display">Lights</h1><p class="dim">Five addressable LEDs, one under each fret. Everything applies live.</p></div>
+    <div id="lightsGate" class="gate small-gate"><p class="dim">Connect a controller to set up its lights.</p><button class="btn primary" data-connect>Connect controller</button></div>
+    <div id="lightsMain" style="display:none">
+      <div class="stage compact"><div id="lightsStage"></div></div>
+      <div class="cols">
+        <div class="panel">
+          <div class="opt first"><div><h2>LEDs</h2><p class="dim">Turn on if you wired LEDs under the frets.</p></div>
+            <label class="switch"><input type="checkbox" id="rgbOn"><i></i></label></div>
+          <div id="rgbOpts">
+            <div class="opt"><div><h3>Data pin</h3><p class="dim">Wired to the first LED's data input.</p></div><select id="rgbPin"></select></div>
+            <div class="opt"><div><h3>LED type</h3><p class="dim" id="ledTypeDesc"></p></div><select id="ledType"></select></div>
+            <div class="opt" id="ledOrderRow"><div><h3>Colour order</h3><p class="dim">If red shows up green, try RGB.</p></div><select id="ledOrder"></select></div>
+            <div class="opt" id="ledClkRow"><div><h3>Clock pin</h3><p class="dim">The APA102 clock input.</p></div><select id="ledClk"></select></div>
+            <div class="slider-row"><label for="rgbBri">Brightness</label><output class="val" id="rgbBriVal"></output>
+              <input type="range" id="rgbBri" min="0" max="255" step="1"></div>
+            <div class="opt"><div><h3>Star power glow</h3><p class="dim">Idle frets pulse cyan when the game reports star power (XInput).</p></div>
+              <label class="switch"><input type="checkbox" id="rgbSp"><i></i></label></div>
+            <div class="opt"><div><h3>Show the mode at plug-in</h3><p class="dim">The fret that picks the running mode flashes for a second.</p></div>
+              <label class="switch"><input type="checkbox" id="rgbFlash"><i></i></label></div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="panel" id="colCard">
+            <h2>Fret colours</h2>
+            <div id="colRows"></div>
+            <div class="presets" id="presets"></div>
+          </div>
+          <div class="panel" id="fxCard">
+            <h2>Effect</h2>
+            <div class="choice-list" id="fxList"></div>
+            <div class="slider-row"><label for="fxSpeed">Speed</label><output class="val" id="fxSpeedVal"></output>
+              <input type="range" id="fxSpeed" min="1" max="10" step="1"></div>
+          </div>
+          <div class="panel" id="mapCard">
+            <h2>LED order</h2>
+            <p class="dim">Which LED in the chain sits under which fret.</p>
+            <div id="mapView" class="ledmap"></div>
+            <button class="btn" id="mapWizard">Remap with the wizard</button>
+          </div>
         </div>
       </div>
-      <div class="card" id="fxCard">
-        <h2>Effect</h2>
-        <div class="radio-cards" id="fxList"></div>
-        <div class="slider-row"><label for="fxSpeed">Effect speed</label><span class="val" id="fxSpeedVal"></span>
-          <input type="range" id="fxSpeed" min="1" max="10" step="1"></div>
-      </div>
-      <div class="card" id="colCard">
-        <h2>Fret colours</h2>
-        <div id="colRows"></div>
-        <div class="muted" style="margin:14px 0 8px;font-size:13px">Presets</div>
-        <div class="row" id="presets" style="flex-wrap:wrap"></div>
-      </div>
-      <div class="card" id="mapCard">
-        <h2>LED order</h2>
-        <p class="muted">Which LED in the chain sits under which fret. If the colours land on the wrong buttons, run the wizard.</p>
-        <div id="mapView" class="ledmap"></div>
-        <div class="row" style="margin-top:14px"><button class="btn primary" id="mapWizard">Remap LEDs with the wizard</button></div>
-      </div>
-      <div class="card" style="grid-column:1/-1">
-        <div class="row" style="justify-content:space-between">
-          <div class="muted" id="lightsState">Live changes — not saved yet.</div>
-          <div class="row"><button class="btn primary" id="saveLights">Save to controller</button></div>
-        </div>
+      <div class="savebar">
+        <span id="lightsState" class="dim">Live changes, not saved yet.</span>
+        <button class="btn primary" id="saveLights">Save to controller</button>
       </div>
     </div>
   </section>
 
   <!-- ================= MODES ================= -->
   <section class="view" id="view-modes">
-    <h1>Modes</h1>
-    <p class="lead">YAGCC can present itself to the host in different ways. Hold a fret while plugging in to switch, or set the default here.</p>
-    <div id="modesGate" class="card" style="text-align:center;padding:40px">Connect a controller first.</div>
+    <div class="page-head"><h1 class="display">Modes</h1><p class="dim">What the guitar pretends to be. Hold a fret while plugging in to switch.</p></div>
+    <div id="modesGate" class="gate small-gate"><p class="dim">Connect a controller to change its modes.</p><button class="btn primary" data-connect>Connect controller</button></div>
     <div id="modesMain" style="display:none">
-      <div class="grid" id="modeCards" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr))"></div>
-      <div class="card" style="margin-top:18px">
-        <h2>Hold at plug-in</h2>
-        <p class="muted">Pick which mode each fret selects when held while the controller is plugged in. The chosen mode is remembered.</p>
-        <div class="grid three" id="bootTable"></div>
-        <div class="notice info" style="margin-top:16px">
-          <b>Always available:</b> hold <b>Plus</b> while plugging in for setup mode (XInput + this page, nothing saved). Hold <b>Star power + Plus</b> to jump straight to the firmware-update bootloader.
+      <div class="cols modes-cols">
+        <div class="panel">
+          <h2>Hold a fret at plug-in</h2>
+          <p class="dim">The mode you pick this way is remembered.</p>
+          <div class="fret-map" id="bootTable"></div>
+          <dl class="always">
+            <dt>Plus</dt><dd>Setup mode for one session, nothing saved</dd>
+            <dt>Star power + Plus</dt><dd>Bootloader, for firmware updates</dd>
+          </dl>
+        </div>
+        <div class="panel">
+          <h2>Default mode</h2>
+          <p class="dim">Used when no fret is held.</p>
+          <div class="mode-list" id="modeCards" role="radiogroup" aria-label="Default mode"></div>
         </div>
       </div>
-      <div class="grid two" style="margin-top:18px">
-        <div class="card">
-          <h2>Xbox / XInput</h2>
-          <div class="radio-cards" id="xiType"></div>
-          <div class="opt"><div><h3>Star power also presses D-pad left</h3><span class="muted">Fortnite Festival on PC reads overdrive from D-pad left. Leave off for Clone Hero / YARG.</span></div>
+      <div class="cols">
+        <div class="panel">
+          <h2>XInput guitar type</h2>
+          <div class="choice-list" id="xiType"></div>
+          <div class="opt"><div><h3>Star power also presses D-pad left</h3><p class="dim">Fortnite Festival on PC reads star power from there. Leave off for Clone Hero and YARG.</p></div>
             <label class="switch"><input type="checkbox" id="starLeft"><i></i></label></div>
         </div>
-        <div class="card">
-          <h2>Keyboard · Fortnite Festival</h2>
-          <p class="muted">Used in keyboard mode (assign it to a fret above). Must match the keys set in Fortnite.</p>
-          <div class="row" id="keyPresets" style="flex-wrap:wrap;margin-bottom:10px"></div>
+        <div class="panel">
+          <h2>Keyboard bindings</h2>
+          <p class="dim">For keyboard mode. They have to match the keys set in Fortnite.</p>
+          <div class="seg" id="keyPresets" role="group" aria-label="Key presets"></div>
           <div class="keymap" id="keyMap"></div>
         </div>
       </div>
-      <div class="row" style="margin-top:18px;justify-content:flex-end"><button class="btn primary" id="saveModes">Save &amp; restart controller</button></div>
+      <div class="savebar">
+        <span class="dim">Mode changes take effect after a restart.</span>
+        <button class="btn primary" id="saveModes">Save and restart controller</button>
+      </div>
     </div>
   </section>
+
   <!-- ================= HARDWARE ================= -->
   <section class="view" id="view-hardware">
-    <h1>Supported hardware</h1>
-    <p class="lead">Boards, switches, sensors and LEDs you can build a YAGCC guitar with. Wire buttons to any free GPIO — the guided setup works out which pin is which.</p>
-    <div class="notice info" style="margin-bottom:16px"><b>Watch out for fake "Pico W" boards.</b> Many cheap boards swap the Raspberry Pi wireless chip for an ESP8285 / ESP8266, which is Wi-Fi only. They work fine over USB with the <b>pico_clone</b> firmware, but can never do Bluetooth. A genuine Pico W has a silver shield marked "Raspberry Pi" over the radio.</div>
+    <div class="page-head"><h1 class="display">Hardware</h1><p class="dim">Boards, switches, sensors and LEDs you can build a YAGCC guitar with. Buttons go on any free GPIO; setup works out which is which.</p></div>
+    <div class="notice"><b>Fake "Pico W" boards.</b> Many cheap boards replace the Raspberry Pi radio with an ESP8285, which only does Wi-Fi. They work fine over USB with the clone firmware but can never do Bluetooth. A genuine Pico W has a metal shield marked "Raspberry Pi".</div>
     <div id="hwList"></div>
   </section>
 
   <!-- ================= COMPATIBILITY ================= -->
   <section class="view" id="view-compat">
-    <h1>Console compatibility</h1>
-    <p class="lead">Which mode to use on each console and game. Hold a fret while plugging in to pick the mode (defaults: green XInput, red PS3 Rock Band, yellow HID, blue PS3 Guitar Hero, orange Nintendo Switch).</p>
+    <div class="page-head"><h1 class="display">Compatibility</h1><p class="dim">Which mode to use for each console and game, and how well it's tested.</p></div>
     <div id="compatList"></div>
-    <div class="card" style="margin-top:18px">
-      <h2>Avoiding console authentication</h2>
-      <p class="muted">PS4, PS5 and Xbox One / Series only accept licensed controllers. Two setups don't need any extra hardware:</p>
-      <ul class="muted"><li><b>Fortnite Festival:</b> Switch mode (orange fret) on Switch; keyboard mode on PS4/PS5/Xbox/PC, since keyboards are never asked to authenticate.</li>
-        <li><b>Rock Band 4 on PS4 / PS5:</b> PS3 Rock Band mode (red fret). The game accepts PS3 guitars as legacy instruments.</li></ul>
-      <p class="muted" style="margin-bottom:0">Everything else on those consoles needs an authentication device on a USB host port, which is planned.</p>
+    <div class="panel note-panel">
+      <h2>Consoles that require authentication</h2>
+      <p class="dim">PS4, PS5 and Xbox One / Series only accept licensed controllers. Two setups work without extra hardware:</p>
+      <ul class="dim">
+        <li><b>Fortnite Festival</b> in keyboard mode, since keyboards are never asked to authenticate. On Switch, use Switch mode (orange fret).</li>
+        <li><b>Rock Band 4 on PS4 / PS5</b> in PS3 Rock Band mode (red fret). The game accepts PS3 guitars as legacy instruments.</li>
+      </ul>
+      <p class="dim">Everything else on those consoles needs an authentication device on a USB host port, which is planned.</p>
     </div>
   </section>
 </main>
 
-<footer>YAGCC is open source (GPL-3.0) · <a href="https://github.com/Cr4zySh4rk/YAGCC">GitHub</a> · inspired by Santroller and GP2040-CE</footer>
-<div id="toasts"></div>
+<footer><span>YAGCC is open source under GPL-3.0.</span> <a href="https://github.com/Cr4zySh4rk/YAGCC">Source on GitHub</a> <span>Built on ideas from Santroller and GP2040-CE.</span></footer>
+<div id="toasts" aria-live="polite"></div>
 <script type="module" src="js/app.js?v=dev"></script>
 </body>
 </html>

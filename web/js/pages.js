@@ -111,26 +111,28 @@ function badge(st) {
 }
 
 function chips(groups, active, attr) {
-  return groups.map((g) => `<button class="preset ${g.id === active ? 'on' : ''}" ${attr}="${g.id}"><span style="margin:0">${g.name}</span></button>`).join('');
+  return `<div class="seg filters" role="group">${groups.map((g) => `<button class="${g.id === active ? 'on' : ''}" ${attr}="${g.id}" aria-pressed="${g.id === active}">${g.name}</button>`).join('')}</div>`;
 }
 
 export function renderCompat(root, filter = 'all') {
   const rows = COMPAT.filter((r) => filter === 'all' || r.group === filter);
-  root.innerHTML = `<div class="row" style="flex-wrap:wrap;margin-bottom:14px">${chips(COMPAT_GROUPS, filter, 'data-cg')}</div>
-    <div class="compat">${rows.map((r) => `<div class="card compat-row">
-      <div><div class="muted small">${r.console}</div><h3>${r.game}</h3>${r.notes ? `<p class="muted small" style="margin:6px 0 0">${r.notes}</p>` : ''}</div>
-      <div><div class="muted small">Mode</div>${r.mode}</div>
-      <div><div class="muted small">Connection</div>${r.how}</div>
-      <div style="text-align:right">${badge(r.status)}</div></div>`).join('')}</div>`;
+  root.innerHTML = `${chips(COMPAT_GROUPS, filter, 'data-cg')}
+    <div class="compat" role="table">
+      <div class="compat-head" role="row"><span>Console and game</span><span>Mode</span><span>Connection</span><span>Status</span></div>
+      ${rows.map((r) => `<div class="compat-row" role="row">
+        <div><div class="console">${r.console}</div><h3>${r.game}</h3>${r.notes ? `<p class="notes">${r.notes}</p>` : ''}</div>
+        <div><span class="lbl">Mode</span>${r.mode}</div>
+        <div><span class="lbl">Connection</span>${r.how}</div>
+        <div>${badge(r.status)}</div></div>`).join('')}</div>`;
   root.querySelectorAll('[data-cg]').forEach((b) => { b.onclick = () => renderCompat(root, b.dataset.cg); });
 }
 
 export function renderHardware(root, filter = 'all') {
   const items = HARDWARE.filter((h) => filter === 'all' || h.group === filter);
-  root.innerHTML = `<div class="row" style="flex-wrap:wrap;margin-bottom:14px">${chips(HW_GROUPS, filter, 'data-hg')}</div>
-    <div class="grid three">${items.map((h) => `<div class="card hw">
-      <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px"><span class="muted small">${h.bus}</span>${badge(h.status)}</div>
-      <h3 style="margin:8px 0 6px">${h.name}</h3>${h.tag ? `<span class="chip">${h.tag}</span>` : ''}
+  root.innerHTML = `${chips(HW_GROUPS, filter, 'data-hg')}
+    <div class="hw-grid">${items.map((h) => `<div class="hw">
+      <div class="meta"><span>${h.bus}</span>${badge(h.status)}</div>
+      <h3>${h.name}</h3>${h.tag ? `<span class="tag">${h.tag}</span>` : ''}
       ${h.points.length ? `<ul>${h.points.map((p) => `<li>${p}</li>`).join('')}</ul>` : ''}</div>`).join('')}</div>`;
   root.querySelectorAll('[data-hg]').forEach((b) => { b.onclick = () => renderHardware(root, b.dataset.hg); });
 }
