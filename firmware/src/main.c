@@ -47,6 +47,8 @@ static uint16_t build_status(void) {
     return (uint16_t)(p - tx_buf);
 }
 
+static bool g_setup_session;   // this boot is a one-off setup session (XInput + web config), not the saved mode
+
 static uint16_t build_info(void) {
     uint8_t *p = tx_buf;
     memcpy(p, "YACC", 4); p += 4;   // wire-protocol magic (unchanged by the YAGCC rename)
@@ -58,6 +60,7 @@ static uint16_t build_info(void) {
     *p++ = NUM_ADC_CH;
     *p++ = NUM_FUNCS;
     *p++ = g_usb_mode;                  // mode this boot is running in
+    *p++ = g_setup_session ? 1 : 0;     // flags: 1 = setup session (the saved mode returns on the next plug-in)
     return (uint16_t)(p - tx_buf);
 }
 
@@ -415,6 +418,7 @@ static uint8_t pick_mode(void) {
     // the configurator asked for setup mode from PS3 mode: honour it for this boot only
     if (watchdog_caused_reboot() && watchdog_hw->scratch[0] == SETUP_MAGIC) {
         watchdog_hw->scratch[0] = 0;
+        g_setup_session = true;
         return MODE_XINPUT;
     }
     watchdog_hw->scratch[0] = 0;
@@ -423,7 +427,7 @@ static uint8_t pick_mode(void) {
         reset_usb_boot(0, 0);
     }
     // plus alone -> setup mode for this boot (XInput + web config), nothing is saved
-    if (boot_pressed(F_PLUS)) return MODE_XINPUT;
+    if (boot_pressed(F_PLUS)) { g_setup_session = true; return MODE_XINPUT; }
 
     uint8_t mode = g_cfg.usb_mode < NUM_MODES ? g_cfg.usb_mode : MODE_XINPUT;
     for (int i = 0; i < NUM_FRETS; i++) {

@@ -203,6 +203,7 @@ export function parseInfo(dv) {
     btSupported: !!(dv.getUint8(7) & 1), rgbSupported: !!(dv.getUint8(7) & 2),
     digitalPins: dv.getUint8(8), adcChannels: dv.getUint8(9), funcs: dv.getUint8(10),
     mode: dv.byteLength > 11 ? dv.getUint8(11) : 0,
+    setupSession: dv.byteLength > 12 ? !!(dv.getUint8(12) & 1) : false,   // firmware 0.6+: one-off setup boot
   };
 }
 

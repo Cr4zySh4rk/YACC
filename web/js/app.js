@@ -1,5 +1,5 @@
 import {
-  FUNCS, FUNC_LABEL, PIN_NONE, NUM_DIGITAL_PINS, NUM_FRETS, MODES, MODE_NONE, BOARDS,
+  FUNCS, FUNC_LABEL, PIN_NONE, NUM_DIGITAL_PINS, NUM_FRETS, MODES, MODE_NONE, BOARDS, modeName,
   DEBOUNCE_MODES, defaultConfig, whammyValue, isPressed, EFFECTS, RGB_PRESETS, FRET_DEFAULT_COLORS, NUM_LEDS,
   LED_TYPES, LED_ORDERS, KEY_SLOTS, KEYS, KEY_PRESETS,
 } from './protocol.js?v=dev';
@@ -104,7 +104,7 @@ function updatePill() {
   if (state.dev && state.info) {
     pill.classList.add('on');
     const m = MODES.find((x) => x.id === state.info.mode);
-    $('#connText').innerHTML = `<span class="seg-item">${BOARDS[state.info.board] ?? 'Board'}</span><span class="seg-item">${m ? m.short : '?'}</span><span class="seg-item mono">v${state.info.major}.${state.info.minor}</span>`;
+    $('#connText').innerHTML = `<span class="seg-item">${BOARDS[state.info.board] ?? 'Board'}</span><span class="seg-item">${state.info.setupSession ? 'Setup' : m ? m.short : '?'}</span><span class="seg-item mono">v${state.info.major}.${state.info.minor}</span>`;
   } else {
     pill.classList.remove('on');
     $('#connText').textContent = state.connecting ? 'Connecting…' : 'Not connected';
@@ -662,9 +662,15 @@ function buildLights() {
 function buildModes() {
   const c = state.cfg;
   const running = state.info.mode;
+  const setup = !!state.info.setupSession;
+  const modeTag = (id) => setup
+    ? (id === running ? '<span class="tag">Setup session</span>' : id === c.usbMode ? '<span class="tag live">Next plug-in</span>' : '<span></span>')
+    : (id === running ? '<span class="tag live">Running</span>' : '<span></span>');
   $('#modeCards').innerHTML = MODES.map((m) => `<div class="mode-row ${c.usbMode === m.id ? 'sel' : ''}" data-mode="${m.id}" role="radio" tabindex="0" aria-checked="${c.usbMode === m.id}" title="${m.desc.replace(/"/g, '&quot;')}">
       <span class="radio"></span><div><b>${m.name.replace(/ \(experimental\)$/, '')}</b>${m.host ? ' <span class="tag exp">Experimental</span>' : ''}<div class="dim">${MODE_USE[m.id] || ''}</div></div>
-      ${running === m.id ? '<span class="tag live">Running</span>' : '<span></span>'}</div>`).join('');
+      ${modeTag(m.id)}</div>`).join('');
+  $('#setupNote').hidden = !setup;
+  $('#setupNote').innerHTML = setup ? `The guitar is in a one-off <b>setup session</b> (XInput with configuration), which is why it can talk to this page. Unplug it and plug it back in to return to <b>${modeName(c.usbMode).replace(/ \(experimental\)$/, '')}</b>.` : '';
   buildHostPort();
   const pick = (row) => { c.usbMode = +row.dataset.mode; buildModes(); $(`#modeCards [data-mode="${c.usbMode}"]`)?.focus(); };
   $('#modeCards').onclick = (e) => { const row = e.target.closest('.mode-row'); if (row) pick(row); };
