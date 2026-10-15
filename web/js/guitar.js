@@ -1,6 +1,7 @@
 // Gibson Les Paul style Guitar Hero controller, drawn as inline SVG: lying horizontally,
 // body on the left, neck and headstock to the right (like a product shot).
 // Every control can be lit up live (pressed), marked as mapped, or focused (dashed ring).
+import { createGuitar3D, webglAvailable } from './guitar3d.js?v=dev';
 const NS = 'http://www.w3.org/2000/svg';
 const COLORS = { green: '#22c55e', red: '#ef4444', yellow: '#facc15', blue: '#3b82f6', orange: '#fb923c' };
 const FRET_NAMES = ['green', 'red', 'yellow', 'blue', 'orange'];
@@ -26,7 +27,7 @@ function grad(defs, id, kind, attrs, stops) {
   return g;
 }
 
-export function createGuitar() {
+function createGuitar2D() {
   const u = ++uidCounter;
   const id = (n) => `g${u}-${n}`;
   const url = (n) => `url(#${id(n)})`;
@@ -220,5 +221,27 @@ export function createGuitar() {
       });
     },
     setTilt(on) { needleSet(!!on); parts.tilt.classList.toggle('on', !!on); },
+  };
+}
+
+// The live view: the 3D model when WebGL is available, the drawing until it has loaded (or if it can't).
+export function createGuitar({ compact = false } = {}) {
+  const g2 = createGuitar2D();
+  const wrap = document.createElement('div');
+  wrap.className = 'guitar-view' + (compact ? ' compact-3d' : '');
+  wrap.appendChild(g2.el);
+  const views = [g2];
+  if (webglAvailable() && !/[?&]2d\b/.test(location.search)) {
+    const g3 = createGuitar3D(wrap, {
+      onReady: () => { wrap.classList.add('is-3d'); },
+      onFail: () => { wrap.classList.remove('is-3d'); },
+    });
+    views.push(g3);
+  }
+  const all = (fn) => (...a) => views.forEach((v) => v[fn]?.(...a));
+  return {
+    el: wrap,
+    setPressed: all('setPressed'), setMapped: all('setMapped'), setFocus: all('setFocus'),
+    setWhammy: all('setWhammy'), setFretColors: all('setFretColors'), setTilt: all('setTilt'),
   };
 }

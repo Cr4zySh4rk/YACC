@@ -385,3 +385,11 @@ footer a { color: var(--dim); }
 .wiring dd { margin: 0; color: var(--dim); font-family: var(--mono); font-size: 14px; }
 p.warn { color: var(--warn); margin-top: 8px; }
 @media (max-width: 760px) { .host-grid { grid-template-columns: 1fr; } }
+/* live 3D guitar (falls back to the drawing) */
+.guitar-view { position: relative; }
+.guitar-view.is-3d svg.guitar { display: none; }
+canvas.guitar3d { display: block; width: 100%; cursor: grab; touch-action: pan-y; animation: g3d-in .5s ease-out; }
+canvas.guitar3d.grabbing { cursor: grabbing; }
+.guitar-view.is-3d::after { content: "Drag to turn · double-click to reset"; position: absolute; right: 4px; bottom: 2px; font: 500 11px var(--sans); color: var(--faint); pointer-events: none; }
+.stage.compact .guitar-view.is-3d::after { display: none; }
+@keyframes g3d-in { from { opacity: 0; } to { opacity: 1; } }

@@ -6,3 +6,6 @@ build/
 *.dis
 node_modules/
 .DS_Store
+
+# raw 3D model downloads (rebuild with tools/model/build_glb.py)
+Guitar3DModel/

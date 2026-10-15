@@ -68,6 +68,8 @@ This is ported from GP2040-CE's PS4 and Xbox One drivers but **has not yet been 
 
 **Backup and restore.** The **Tune** tab can download all settings (wiring, tuning, lights, modes) as a JSON file and restore any of those sections later, onto the same guitar or another one. Files are checked before anything is written, and pins that would clash on the target are skipped.
 
+**Live 3D guitar.** The Setup, Tune and Lights pages show a 3D Les Paul that copies the real guitar as you play it: frets press in and light up in their LED colours, the strum bar rocks up and down, the whammy bar dips as far as you push it, Star power and Plus light up, and the guitar lifts its neck when the tilt sensor fires. Drag to turn it, double-click to reset. It loads only when a page with the guitar is opened. If the browser has no hardware graphics acceleration, the flat drawing is shown instead (add `?2d` to the address to force it).
+
 See the **Compatibility** page in the web app for a game-by-game / console-by-console table with honest status labels (Supported, Experimental, Planned).
 
 ## Wiring
@@ -126,7 +128,8 @@ YAGCC is guitar-only for now (drums and other instruments are out of scope). Exp
 firmware/   pico-sdk + TinyUSB firmware (XInput, PS3 GH/RB, HID, keyboard, Switch, Wii RB, OG Xbox + WebUSB config),
             PS4 / Xbox One modes with auth passthrough (src/host), LED drivers, flash nuke,
             lib/xsm3 (Xbox 360 security, LGPL-2.1), lib/pico_pio_usb (USB host port, MIT)
-web/        static web app (no build step) – deployed as-is
+web/        static web app (no build step) – deployed as-is; models/guitar.glb + vendor/three-yagcc.js for the 3D view
+tools/      model/build_glb.py rebuilds the 3D guitar from the Sketchfab download
 tests/      unit tests for pin and whammy detection
 .github/    CI: builds all firmware variants and deploys the site to GitHub Pages
 assets/     logo and demo media
@@ -168,4 +171,4 @@ See `firmware/src/config.h`, `firmware/src/usb_common.h` and `web/js/protocol.js
 
 ## Credits & license
 
-Inspired by and compatible in spirit with [Santroller](https://github.com/Santroller/Santroller) and [GP2040-CE](https://github.com/OpenStickCommunity/GP2040-CE); USB identities and handshakes were studied from Santroller. Xbox 360 security uses **libxsm3** (from Santroller, LGPL-2.1, `firmware/lib/xsm3`). The PS4 and Xbox One authentication passthrough is adapted from **GP2040-CE** (MIT; `firmware/src/host`, including its `xgip_protocol` and XInput host driver), and the Rock Band 4 guitar identities and report layouts follow Santroller. The USB host port uses **Pico-PIO-USB** 0.6.1 by sekigon-gonnoc (MIT, `firmware/lib/pico_pio_usb`). YAGCC is licensed under **GPL-3.0** (see `LICENSE`).
+Inspired by and compatible in spirit with [Santroller](https://github.com/Santroller/Santroller) and [GP2040-CE](https://github.com/OpenStickCommunity/GP2040-CE); USB identities and handshakes were studied from Santroller. Xbox 360 security uses **libxsm3** (from Santroller, LGPL-2.1, `firmware/lib/xsm3`). The 3D guitar is based on ["Guitar Hero Controller"](https://sketchfab.com/3d-models/guitar-hero-controller-bcac8f9f95a44008ad90f470326e5fca) by [CamSear16](https://sketchfab.com/CamSear16), licensed under [CC BY 4.0](http://creativecommons.org/licenses/by/4.0/); it was split into moving parts and brand marks were removed (see `tools/model/README.md`). It is rendered with **three.js** (MIT). The PS4 and Xbox One authentication passthrough is adapted from **GP2040-CE** (MIT; `firmware/src/host`, including its `xgip_protocol` and XInput host driver), and the Rock Band 4 guitar identities and report layouts follow Santroller. The USB host port uses **Pico-PIO-USB** 0.6.1 by sekigon-gonnoc (MIT, `firmware/lib/pico_pio_usb`). YAGCC is licensed under **GPL-3.0** (see `LICENSE`).

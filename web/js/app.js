@@ -65,8 +65,8 @@ function pushCfg() {
 
 // ------------------------------------------------------------------ live guitar viewers
 const viewers = [];
-function makeViewer(container, withPins = false) {
-  const g = createGuitar();
+function makeViewer(container, withPins = false, compact = false) {
+  const g = createGuitar({ compact });
   container.appendChild(g.el);
   let pinsEl = null;
   if (withPins) {
@@ -200,9 +200,9 @@ function buildUi() {
   $('#stage').innerHTML = '';
   stageViewer = makeViewer($('#stage'), true);
   $('#tuneStage').innerHTML = '';
-  makeViewer($('#tuneStage'));
+  makeViewer($('#tuneStage'), false, true);
   $('#lightsStage').innerHTML = '';
-  makeViewer($('#lightsStage'));
+  makeViewer($('#lightsStage'), false, true);
   buildTune();
   buildBackup();
   buildLights();
