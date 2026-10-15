@@ -232,9 +232,10 @@ export function createGuitar({ compact = false } = {}) {
   wrap.appendChild(g2.el);
   const views = [g2];
   if (webglAvailable() && !/[?&]2d\b/.test(location.search)) {
+    wrap.classList.add('loading-3d');   // keep the drawing's space but don't flash it while the model loads
     const g3 = createGuitar3D(wrap, {
-      onReady: () => { wrap.classList.add('is-3d'); },
-      onFail: () => { wrap.classList.remove('is-3d'); },
+      onReady: () => { wrap.classList.replace('loading-3d', 'is-3d'); },
+      onFail: () => { wrap.classList.remove('loading-3d', 'is-3d'); },   // fall back to the drawing
     });
     views.push(g3);
   }

@@ -388,6 +388,9 @@ p.warn { color: var(--warn); margin-top: 8px; }
 /* live 3D guitar (falls back to the drawing) */
 .guitar-view { position: relative; }
 .guitar-view.is-3d svg.guitar { display: none; }
+.guitar-view.loading-3d svg.guitar { visibility: hidden; }
+.guitar-view.loading-3d::before { content: "Loading 3D guitar…"; position: absolute; inset: 0; display: grid; place-items: center; font: 500 13px var(--sans); color: var(--faint); animation: g3d-wait 1.6s ease-in-out infinite; }
+@keyframes g3d-wait { 50% { opacity: .35; } }
 canvas.guitar3d { display: block; width: 100%; cursor: grab; touch-action: pan-y; animation: g3d-in .5s ease-out; }
 canvas.guitar3d.grabbing { cursor: grabbing; }
 .guitar-view.is-3d::after { content: "Drag to turn · double-click to reset"; position: absolute; right: 4px; bottom: 2px; font: 500 11px var(--sans); color: var(--faint); pointer-events: none; }
