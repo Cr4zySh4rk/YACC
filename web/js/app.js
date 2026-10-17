@@ -383,9 +383,9 @@ function renderStep() {
       ? 'This is a Pico-compatible clone. Its ESP8285 chip only does Wi-Fi, so there is no Bluetooth radio to use.'
       : 'This board has no Bluetooth radio. Only the Pico W and Pico 2 W can go wireless.';
     card.innerHTML = head + `
-      <div class="opt first"><div><h3>Bluetooth</h3><p class="dim">${sup ? 'Hold <b>Star power + Plus</b> for 5 seconds to pair.' : why}</p></div>
+      <div class="opt first"><div><h3>Bluetooth</h3><p class="dim">${sup ? 'To pair a new phone, PC or tablet, hold <b>Star power</b> while plugging in or switching on (or hold <b>Star power + Plus</b> for 5 s). The frets double-blink blue until it connects. It shows up as <b>YAGCC Guitar</b>.' : why}</p></div>
         <label class="switch"><input type="checkbox" id="btSw" ${state.cfg.btEnabled ? 'checked' : ''} ${sup ? '' : 'disabled'}><i></i></label></div>
-      ${sup ? '<div class="notice warn">Bluetooth is still being built into the firmware. The setting is saved, but pairing does nothing yet.</div>' : ''}
+      ${sup ? '<div class="notice warn"><b>Experimental:</b> Bluetooth shows up as a standard gamepad (like HID mode) and is used whenever no USB host is connected. Not yet tested on hardware.</div>' : ''}
       ${nav('<button class="btn primary" id="bSkip">Continue</button>')}`;
     wireNav();
     $('#btSw').addEventListener('change', (e) => { state.cfg.btEnabled = e.target.checked; pushCfg(); });

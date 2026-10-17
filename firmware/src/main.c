@@ -47,7 +47,8 @@ static uint16_t build_status(void) {
     return (uint16_t)(p - tx_buf);
 }
 
-static bool g_setup_session;   // this boot is a one-off setup session (XInput + web config), not the saved mode
+static bool g_setup_session;
+static bool g_bt_pair_at_boot;   // Star power held at power-on: pair a new Bluetooth host   // this boot is a one-off setup session (XInput + web config), not the saved mode
 
 static uint16_t build_info(void) {
     uint8_t *p = tx_buf;
@@ -426,6 +427,8 @@ static uint8_t pick_mode(void) {
     if (boot_pressed(F_STAR) && boot_pressed(F_PLUS)) {
         reset_usb_boot(0, 0);
     }
+    // star power alone -> Bluetooth pairing (forget the old host), like PS + Create on a PlayStation pad
+    if (boot_pressed(F_STAR) && !boot_pressed(F_PLUS)) g_bt_pair_at_boot = true;
     // plus alone -> setup mode for this boot (XInput + web config), nothing is saved
     if (boot_pressed(F_PLUS)) { g_setup_session = true; return MODE_XINPUT; }
 
@@ -452,8 +455,14 @@ int main(void) {
     settle_inputs();
     g_usb_mode = pick_mode();
 
-    bt_init(g_cfg.flags & CFG_FLAG_BT_ENABLED);
-    rgb_init();
+    rgb_init();                       // first, so the LED state machine is claimed before the radio picks one
+    // Bluetooth stays off in the modes that use the USB host port (both need PIO1 / DMA) and on boards without a radio
+    bool bt_ok = bt_supported() && !needs_host(g_usb_mode);
+    if (bt_ok && g_bt_pair_at_boot && !(g_cfg.flags & CFG_FLAG_BT_ENABLED)) {
+        g_cfg.flags |= CFG_FLAG_BT_ENABLED;   // pairing turns Bluetooth on for good
+        config_save();
+    }
+    if (bt_ok) bt_init(g_cfg.flags & CFG_FLAG_BT_ENABLED, g_bt_pair_at_boot);
     if (g_usb_mode == MODE_XBONE) xbone_init();
     tusb_init();
     if (needs_host(g_usb_mode) && g_cfg.host_dp_pin != PIN_NONE) usb_host_start(g_cfg.host_dp_pin);
@@ -487,6 +496,7 @@ int main(void) {
 #ifdef PICO_VBUS_PIN
             vbus = gpio_get(PICO_VBUS_PIN);            // running from the battery alone: no sweep
 #endif
+            if (bt_vbus() >= 0) vbus = bt_vbus() == 1;  // Pico W / Pico 2 W: read through the radio chip once it's on
             rgb_set_charging(!mounted && vbus && host_lost_at && now - host_lost_at > 3000000);
         }
         rgb_task();
@@ -506,10 +516,11 @@ int main(void) {
         }
 
         // Hold star power + plus for 5 s -> Bluetooth pairing mode
-        if ((g_cfg.flags & CFG_FLAG_BT_ENABLED) && input_func(F_STAR) && input_func(F_PLUS)) {
+        if (bt_supported() && !needs_host(g_usb_mode) && input_func(F_STAR) && input_func(F_PLUS)) {
             if (!hold_start) hold_start = now;
             else if (!hold_fired && now - hold_start >= 5000000) {
                 hold_fired = true;
+                if (!(g_cfg.flags & CFG_FLAG_BT_ENABLED)) { g_cfg.flags |= CFG_FLAG_BT_ENABLED; save_pending = true; }
                 bt_start_pairing();
             }
         } else {
@@ -542,7 +553,16 @@ int main(void) {
             dirty = true;
             memcpy(last_report, rpt, len);
             last_len = len;
-            bt_send_state(0, st.whammy, 0);
+        }
+        // Bluetooth gets the HID gamepad report whenever no USB host is using the guitar (USB wins when both are there)
+        if (bt_running()) {
+            static uint8_t bt_last[HID_REPORT_LEN];
+            static bool bt_was_usb = true;
+            uint8_t h[HID_REPORT_LEN];
+            build_hid(&st, h);
+            bool usb = tud_mounted();
+            if (!usb && (bt_was_usb || memcmp(h, bt_last, sizeof(h)) != 0)) { bt_send_report(h, sizeof(h)); memcpy(bt_last, h, sizeof(h)); }
+            bt_was_usb = usb;
         }
 
         if ((dirty || now - last_sent >= 8000) && tud_ready()) {

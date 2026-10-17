@@ -23,9 +23,16 @@ static bool program_loaded;
 static int cur_pin = -1, cur_clk = -1, cur_type = -1;
 static volatile bool star_power;
 static volatile bool charging;
+static volatile uint8_t bt_led;
+static volatile uint32_t bt_connected_at;
 
 void rgb_set_star_power(bool on) { star_power = on; }
 void rgb_set_charging(bool on) { charging = on; }
+void rgb_set_bt(uint8_t state) {
+    if (state == RGB_BT_CONNECTED && bt_led != RGB_BT_CONNECTED) bt_connected_at = time_us_32() | 1;
+    bt_led = state;
+}
+#define BT_CONNECTED_SHOW_US 1000000u
 
 #define CHARGE_SWEEP_US 2000000u   // orange -> green
 #define CHARGE_PAUSE_US  700000u   // dark gap before the next sweep
@@ -44,6 +51,7 @@ static uint8_t gamma8[256];
 
 void rgb_init(void) {
     for (int i = 0; i < 256; i++) gamma8[i] = (uint8_t)(powf(i / 255.0f, 2.6f) * 255.0f + 0.5f);
+    pio_sm_claim(rgb_pio, rgb_sm);           // so the CYW43 radio driver (Pico W) never takes this state machine
     rgb_offset = pio_add_program(rgb_pio, &ws2812_program);
     program_loaded = true;
     last_frame = time_us_32();
@@ -177,6 +185,15 @@ void rgb_task(void) {
             int f = boot_fret;
             px[g_cfg.led_map[f]] = pack(g_cfg.colors[f][0], g_cfg.colors[f][1], g_cfg.colors[f][2], 255, bright);
         }
+    } else if (bt_led == RGB_BT_PAIRING) {
+        // Bluetooth pairing: all frets double-blink blue, like a controller looking for a new console
+        uint32_t ph = now % 1200000u;
+        bool on = ph < 120000u || (ph >= 240000u && ph < 360000u);
+        for (int f = 0; f < NUM_FRETS; f++)
+            px[g_cfg.led_map[f]] = input_func(f) ? pack(g_cfg.colors[f][0], g_cfg.colors[f][1], g_cfg.colors[f][2], 255, bright)
+                                                 : pack(0x20, 0x60, 0xFF, on ? 255 : 0, bright);
+    } else if (bt_connected_at && (uint32_t)(now - bt_connected_at) < BT_CONNECTED_SHOW_US) {
+        for (int f = 0; f < NUM_FRETS; f++) px[g_cfg.led_map[f]] = pack(0x20, 0x60, 0xFF, 255, bright);   // paired / reconnected
     } else if (charging) {
         // No USB host, only power (a charger, or a power bank feeding the TP4056 through the Pico's USB port):
         // a soft light runs from the orange fret to the green one, like a charge bar. Held frets still light up.

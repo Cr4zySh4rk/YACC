@@ -47,6 +47,7 @@ Flash the board, plug it in, and the web app walks you through mapping every but
 | *(assign on Modes tab)* | **Xbox One / Series guitar** | Rock Band 4 Stratocaster over GIP (`0738:02EA`); authentication passed through to a controller on the USB host port | Rock Band 4 on Xbox One / Series *(experimental, untested on a console)* |
 | Plus | **Setup mode** | XInput + web config for this boot only, nothing saved | |
 | Star + Plus | **Bootloader** | Jumps to UF2 mode so you can reflash without touching BOOTSEL | |
+| Star | **Bluetooth pairing** | Pico W / Pico 2 W: forget the old host and pair a new one (the USB mode is the default one) | |
 
 The mode picked by holding a fret is remembered (like GP2040-CE), and every fret → mode assignment can be changed on the **Modes** tab.
 
@@ -90,7 +91,7 @@ See the **Compatibility** page in the web app for a game-by-game / console-by-co
 * **Effects**: static, dim on press, off on press, brighten on press, flash & fade, breathing, rainbow (speed adjustable).
 * **Mode indicator**: after plug-in the fret LED that selects the running mode (green = XInput, red = PS3 Rock Band, yellow = HID, blue = PS3 Guitar Hero, orange = Switch by default) flashes for one second.
 * **Star power glow**: in XInput mode, games that report star power (Clone Hero, YARG, Guitar Hero via the rumble channel) make the idle frets pulse cyan.
-* **Charging / no-host sweep**: if the guitar has USB power but no host talks to it for 3 s (a phone charger or power bank, for example when the Pico's USB port also feeds a TP4056 battery charger), a soft light runs slowly from the orange fret to the green one and repeats. Held frets still light up, and normal lighting returns as soon as a PC or console connects. On the Pico and Pico 2 the firmware also checks the USB power pin, so running from the battery alone doesn't trigger it; on other boards it's based on the missing host only.
+* **Charging / no-host sweep**: if the guitar has USB power but no host talks to it for 3 s (a phone charger or power bank, for example when the Pico's USB port also feeds a TP4056 battery charger), a soft light runs slowly from the orange fret to the green one and repeats. Held frets still light up, and normal lighting returns as soon as a PC or console connects. On the Pico and Pico 2 (and the Pico W / Pico 2 W while Bluetooth is on) the firmware also checks the USB power pin, so running from the battery alone doesn't trigger it; on other boards it's based on the missing host only.
 * The LEDs work in every USB mode, including the PS3 modes where the web config is unavailable (set them up beforehand).
 
 ## Debounce
@@ -117,11 +118,16 @@ The only knob is the lockout time (presets from Off to 20 ms, or a slider up to 
 
 The **Hardware** page in the web app describes each board, the LED types, whammy pots, tilt sensors and wiring, and warns about fake "Pico W" boards. Arduino (ATmega32U4 / 328P) and other microcontrollers are not supported: YAGCC is RP2040/RP2350 only.
 
-**Bluetooth** needs the CYW43 radio of a genuine Pico W / Pico 2 W. The ESP8285 on clone boards is Wi-Fi only, so the toggle is disabled there. The BLE-HID stack itself is not implemented yet — the setting is stored and the hook exists (`firmware/src/bt.c`).
+**Bluetooth (experimental, untested on hardware)** needs the CYW43 radio of a genuine Pico W / Pico 2 W; the ESP8285 on clone boards is Wi-Fi only, so the toggle is disabled there. The guitar is a Bluetooth LE gamepad (HID over GATT, BTstack) named **YAGCC Guitar**, with the same buttons and axes as USB HID mode, so it works with Windows, macOS, Android and iOS gamepad support, Clone Hero and YARG.
+
+* **Pair a new device** (like PS + Create on a PlayStation controller): hold **Star power** while plugging in or switching on. The guitar forgets its previous host, turns Bluetooth on, becomes discoverable for two minutes and the frets double-blink blue. Holding **Star power + Plus** for 5 s while it is running does the same. When a host connects, all frets light blue for a second.
+* Otherwise it only lets the host it is paired with reconnect, and it doesn't advertise as discoverable.
+* Bluetooth reports are sent only while no USB host is using the guitar; plugged into a PC or console, USB wins. It stays off in the PS4 / Xbox One modes, which need the same hardware for the USB host port.
+* Pairings are stored in the two flash sectors below the settings sector.
 
 ## Scope and roadmap
 
-YAGCC is guitar-only for now (drums and other instruments are out of scope). Experimental and untested on consoles: PS4 / PS5 and Xbox One / Series guitar modes with authentication passthrough. Planned, not yet implemented: Bluetooth (BLE) output, wireless receivers, peripheral (wired neck) support over I²C.
+YAGCC is guitar-only for now (drums and other instruments are out of scope). Experimental and untested on consoles: PS4 / PS5 and Xbox One / Series guitar modes with authentication passthrough. Experimental and untested on hardware: Bluetooth LE gamepad output on Pico W / Pico 2 W. Planned, not yet implemented: wireless receivers, peripheral (wired neck) support over I²C.
 
 ## Repository layout
 
