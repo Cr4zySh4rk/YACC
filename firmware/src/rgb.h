@@ -8,5 +8,6 @@ void rgb_task(void);                       // call from the main loop, self-pace
 void rgb_boot_indicator(uint8_t usb_mode); // flash the fret LED that selects this mode for 1 s
 void rgb_test_led(int led);                // light only chain position `led` (white); -1 = normal again
 bool rgb_active_pin(int p);
+void rgb_set_charging(bool on);             // powered but no USB host (e.g. a charger): slow orange -> green chase
 void rgb_set_star_power(bool on);           // game says star power / overdrive is active                 // true while the PIO drives this GPIO
 #endif

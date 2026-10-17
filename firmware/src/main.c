@@ -458,6 +458,10 @@ int main(void) {
     tusb_init();
     if (needs_host(g_usb_mode) && g_cfg.host_dp_pin != PIN_NONE) usb_host_start(g_cfg.host_dp_pin);
     rgb_boot_indicator(g_usb_mode);
+#ifdef PICO_VBUS_PIN
+    gpio_init(PICO_VBUS_PIN); gpio_set_dir(PICO_VBUS_PIN, GPIO_IN);   // Pico / Pico 2: high while USB power is present
+#endif
+    uint64_t host_lost_at = 0;
 
     uint64_t last_sent = 0, hold_start = 0;
     bool hold_fired = false;
@@ -472,9 +476,20 @@ int main(void) {
         if (needs_host(g_usb_mode)) usb_host_task();
         bt_task();
         input_poll();
-        rgb_task();
-
         uint64_t now = time_us_64();
+        // USB power but no host talking to us for 3 s (a phone charger or power bank charging the battery through
+        // the Pico's USB port): tell the LEDs to show the charging sweep. Back to normal the moment a host appears.
+        {
+            bool mounted = tud_mounted();
+            if (mounted) host_lost_at = 0;
+            else if (!host_lost_at) host_lost_at = now ? now : 1;
+            bool vbus = true;
+#ifdef PICO_VBUS_PIN
+            vbus = gpio_get(PICO_VBUS_PIN);            // running from the battery alone: no sweep
+#endif
+            rgb_set_charging(!mounted && vbus && host_lost_at && now - host_lost_at > 3000000);
+        }
+        rgb_task();
 
         if (setup_reboot && now >= reboot_at) {
             watchdog_hw->scratch[0] = SETUP_MAGIC;

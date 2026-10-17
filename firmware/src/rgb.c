@@ -22,8 +22,13 @@ static uint rgb_offset;
 static bool program_loaded;
 static int cur_pin = -1, cur_clk = -1, cur_type = -1;
 static volatile bool star_power;
+static volatile bool charging;
 
 void rgb_set_star_power(bool on) { star_power = on; }
+void rgb_set_charging(bool on) { charging = on; }
+
+#define CHARGE_SWEEP_US 2000000u   // orange -> green
+#define CHARGE_PAUSE_US  700000u   // dark gap before the next sweep
 
 static uint32_t last_frame, boot_t0;
 static int boot_fret = -1;
@@ -171,6 +176,18 @@ void rgb_task(void) {
         if (((now - boot_t0) / BLINK_US) % 2 == 0) {
             int f = boot_fret;
             px[g_cfg.led_map[f]] = pack(g_cfg.colors[f][0], g_cfg.colors[f][1], g_cfg.colors[f][2], 255, bright);
+        }
+    } else if (charging) {
+        // No USB host, only power (a charger, or a power bank feeding the TP4056 through the Pico's USB port):
+        // a soft light runs from the orange fret to the green one, like a charge bar. Held frets still light up.
+        uint32_t t = now % (CHARGE_SWEEP_US + CHARGE_PAUSE_US);
+        int32_t head = (int32_t)((uint64_t)t * 1000u * NUM_FRETS / CHARGE_SWEEP_US);   // 0 .. 5000 in milli-frets
+        for (int f = 0; f < NUM_FRETS; f++) {
+            int32_t d = head - (NUM_FRETS - 1 - f) * 1000;                             // how far the head is past this fret
+            int32_t lv = d < -250 ? 0 : d < 0 ? 255 + d : d < 1600 ? 255 - d * 255 / 1600 : 0;
+            if (t >= CHARGE_SWEEP_US) lv = 0;
+            if (input_func(f)) lv = 255;
+            px[g_cfg.led_map[f]] = pack(g_cfg.colors[f][0], g_cfg.colors[f][1], g_cfg.colors[f][2], (uint8_t)lv, bright);
         }
     } else {
         uint8_t speed = g_cfg.rgb_speed < 1 ? 1 : g_cfg.rgb_speed > 10 ? 10 : g_cfg.rgb_speed;
