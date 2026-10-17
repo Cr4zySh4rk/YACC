@@ -171,6 +171,25 @@ static void packet_handler(uint8_t type, uint16_t channel, uint8_t *packet, uint
             else if (s_want_window) { s_want_window = false; open_pairing(false, WINDOW_TIMEOUT_MS); }
             else set_adv(false);
             break;
+        case HCI_EVENT_ENCRYPTION_CHANGE:
+        case HCI_EVENT_ENCRYPTION_CHANGE_V2: {
+            // A bonded host that reconnects (after the guitar was off) does not subscribe to input reports again:
+            // the spec says the subscription belongs to the bond, so the host expects us to remember it.
+            // BTstack's HID service keeps it in RAM only, so treat an encrypted link as subscribed.
+            bool v2 = hci_event_packet_get_type(packet) == HCI_EVENT_ENCRYPTION_CHANGE_V2;
+            uint8_t on = v2 ? hci_event_encryption_change_v2_get_encryption_enabled(packet)
+                            : hci_event_encryption_change_get_encryption_enabled(packet);
+            hci_con_handle_t h = v2 ? hci_event_encryption_change_v2_get_connection_handle(packet)
+                                    : hci_event_encryption_change_get_connection_handle(packet);
+            if (on && !s_connected) {
+                s_con = h;
+                s_connected = true;
+                s_pairing = false;
+                rgb_set_bt(RGB_BT_CONNECTED);
+                if (s_report_len) hids_device_request_can_send_now_event(s_con);
+            }
+            break;
+        }
         case HCI_EVENT_DISCONNECTION_COMPLETE:
             s_con = HCI_CON_HANDLE_INVALID;
             s_connected = false;
@@ -235,6 +254,9 @@ void bt_init(bool enabled, bool pair, bool open_window) {
     sm_init();
     sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
     sm_set_authentication_requirements(SM_AUTHREQ_BONDING);   // legacy pairing: keys derive from ER (see top)
+    // rebuild a returning host's key from ER even if its entry in the bond list can't be matched (hosts that
+    // change their private address); ER is replaced when pairing forgets everyone, so old hosts still fail
+    sm_allow_ltk_reconstruction_without_le_device_db_entry(1);
     att_server_init(profile_data, att_read, NULL);
     device_information_service_server_init();
     device_information_service_server_set_manufacturer_name("YAGCC");
