@@ -8,6 +8,7 @@ Changes made for YAGCC (shape untouched):
 
 * the frets, strum bar, Start / Back buttons and whammy bar are separate nodes with their own pivots so the configurator can animate them;
 * the static parts are merged into two meshes (plastic and chrome);
+* the front plate is recoloured blue-purple (#5B4EE8) with a black trim (set `YAGCC_FACE=rrggbb` when building for another colour);
 * brand marks were removed from the textures (headstock wordmark, embossed logo, console guide-button logo, rear label);
 * textures were downsized to 2048 px JPEG and the glossiness map was converted to a roughness map.
 

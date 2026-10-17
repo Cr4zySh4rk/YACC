@@ -96,6 +96,28 @@ cx, cy, r = 1532, 2584, 44                                      # guide button: 
 for k in range(r, 0, -1):
     t = k / r; g = int(70 + 120 * (1 - t) ** 0.7)
     d.ellipse((cx - k - 6 * (1 - t), cy - k - 6 * (1 - t), cx + k - 6 * (1 - t), cy + k - 6 * (1 - t)), fill=(g, g, g + 6))
+# YAGCC look: blue-purple front plate (#5B4EE8) with black trim, everything else as modelled; YAGCC_FACE=rrggbb overrides
+FACE = tuple(int(os.environ.get('YAGCC_FACE', '5b4ee8')[i:i + 2], 16) for i in (0, 2, 4))   # front plate colour, hex
+fm = Image.new('L', base.size, 0); fd = ImageDraw.Draw(fm)
+W, H = base.size
+for tri in G['body_Main']:
+    p = V[[c[0] - 1 for c in tri]]
+    n = np.cross(p[1] - p[0], p[2] - p[0]); L = np.linalg.norm(n)
+    if L and n[1] / L > 0.85 and p[:, 1].min() > 11.5:      # faces looking straight up from the top surface
+        fd.polygon([(T[c[1] - 1][0] * W, T[c[1] - 1][1] * H) for c in tri], fill=255)
+box = Image.new('L', base.size, 0); bd = ImageDraw.Draw(box); bd.rectangle((1300, 1300, 3140, 2660), fill=255); bd.rectangle((2960, 1300, 3140, 1870), fill=0)   # the top's UV island only (not the rim strip beside it)
+from PIL import ImageChops, ImageFilter
+top_all = fm.filter(ImageFilter.MaxFilter(9))                                                          # every upward face, incl. the top of the rim
+fm = ImageChops.multiply(fm.filter(ImageFilter.MaxFilter(5)), box)                                    # grow a little over UV seams
+dark = base.convert('L').point(lambda v: 255 if v < 110 else 0)                                          # keep the white binding as it is
+fm = ImageChops.multiply(fm, dark)
+base.paste(FACE, mask=fm)
+# black trim: the white binding around the top becomes black (the guide button stays silver)
+TRIM = (18, 18, 20)
+trim = ImageChops.multiply(base.convert('L').point(lambda v: 255 if v >= 50 else 0), ImageChops.lighter(box, top_all))
+trim = ImageChops.subtract(trim, fm)
+ImageDraw.Draw(trim).ellipse((1532 - 70, 2584 - 70, 1532 + 70, 2584 + 70), fill=0)
+base.paste(TRIM, mask=trim)
 nrm = Image.open(P('textures', 'Material__26_normal.png')).convert('RGB')
 patch = nrm.crop((2240, 2820, 2640, 3210))                      # clean grain beside the embossed logo
 nrm.paste(patch, (2650, 2820))
