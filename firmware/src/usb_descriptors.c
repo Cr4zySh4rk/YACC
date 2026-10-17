@@ -128,6 +128,17 @@ static uint16_t hid_report_desc_len(void) {
 // ================================================================ device descriptor
 static tusb_desc_device_t desc_device;
 
+const uint8_t *usb_hid_report_desc(uint16_t *len) {
+    *len = hid_report_desc_len();
+    return tud_hid_descriptor_report_cb(0);
+}
+
+uint8_t const *tud_descriptor_device_cb(void);
+void usb_mode_ids(uint16_t *vid, uint16_t *pid, uint16_t *version) {
+    const tusb_desc_device_t *d = (const tusb_desc_device_t *)tud_descriptor_device_cb();
+    *vid = d->idVendor; *pid = d->idProduct; *version = d->bcdDevice;
+}
+
 uint8_t const *tud_descriptor_device_cb(void) {
     memset(&desc_device, 0, sizeof(desc_device));
     desc_device.bLength = sizeof(desc_device);

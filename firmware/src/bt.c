@@ -1,15 +1,22 @@
-// Bluetooth (BLE HID gamepad, HID-over-GATT) on boards with the CYW43 radio (Pico W, Pico 2 W).
+// Bluetooth on boards with the CYW43 radio (Pico W, Pico 2 W): Bluetooth LE HID (HID over GATT, BTstack).
 // Other boards get no-op stubs and the web app disables the toggle.
 //
-// Pairing works like a PlayStation controller's PS + Create: hold Star power while plugging in or switching
-// on (or hold Star power + Plus for 5 s while running) and the guitar forgets its previous host and becomes
-// discoverable for a new one. Otherwise only the bonded host can reconnect.
+// Over Bluetooth the guitar presents the same device as over USB in the running mode: the same HID report
+// descriptor, the same report bytes and the same vendor / product ids (Device Information PnP ID). The XInput,
+// original Xbox and Xbox One modes are not HID over USB, so they use the generic gamepad, as their USB
+// descriptor callback does. Every mode has its own Bluetooth address and name ("YAGCC PS3 GH", ...), so a host
+// sees each mode as its own device and never mixes up their report layouts.
+//
+// Pairing works like PS + Create on a PlayStation controller: hold Star power while plugging in or switching on
+// (or Star power + Plus for 5 s while running) and the guitar forgets every host and becomes discoverable.
+// Bonds use LE legacy pairing, so their keys come from one stored master key (ER): a host paired with several
+// modes keeps working in all of them, and forgetting all hosts is just a new master key.
 #include "bt.h"
 
 #ifndef YACC_HAS_BT
 
 bool bt_supported(void) { return false; }
-void bt_init(bool enabled, bool pair) { (void)enabled; (void)pair; }
+void bt_init(bool enabled, bool pair, bool open_window) { (void)enabled; (void)pair; (void)open_window; }
 void bt_task(void) {}
 void bt_start_pairing(void) {}
 uint8_t bt_state(void) { return BT_STATE_OFF; }
@@ -20,64 +27,136 @@ int bt_vbus(void) { return -1; }
 #else
 
 #include <string.h>
+#include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "pico/unique_id.h"
 #include "btstack.h"
 #include "ble/gatt-service/device_information_service_server.h"
 #include "ble/gatt-service/hids_device.h"
 #include "yagcc.h"                       // GATT database generated from yagcc.gatt
+#include "btstack_tlv.h"
+#include "pico/rand.h"
+#include "config.h"
 #include "rgb.h"
 
-#define PAIRING_TIMEOUT_MS 120000u       // stop being discoverable after two minutes, like a game controller
-#define BT_REPORT_LEN 7
+// from usb_common.h / usb_descriptors.c (that header pulls in TinyUSB, whose HID types clash with BTstack's)
+extern uint8_t g_usb_mode;
+const uint8_t *usb_hid_report_desc(uint16_t *len);
+void usb_mode_ids(uint16_t *vid, uint16_t *pid, uint16_t *version);
 
-// Same layout as USB HID mode (16 buttons, hat, X/Y/Z/Rz), with report id 1 to match hids.gatt
-static const uint8_t ble_hid_desc[] = {
-    0x05, 0x01, 0x09, 0x05, 0xA1, 0x01,             // Generic Desktop / Gamepad / Application
-    0x85, 0x01,                                     //   Report ID 1
-    0x05, 0x09, 0x19, 0x01, 0x29, 0x10,             //   Buttons 1..16
-    0x15, 0x00, 0x25, 0x01, 0x75, 0x01, 0x95, 0x10, 0x81, 0x02,
-    0x05, 0x01, 0x09, 0x39,                         //   Hat switch
-    0x15, 0x00, 0x25, 0x07, 0x35, 0x00, 0x46, 0x3B, 0x01, 0x75, 0x04, 0x95, 0x01, 0x81, 0x42,
-    0x95, 0x01, 0x81, 0x03,                         //   4 bit pad
-    0x09, 0x30, 0x09, 0x31, 0x09, 0x32, 0x09, 0x35, //   X Y Z Rz
-    0x15, 0x00, 0x26, 0xFF, 0x00, 0x35, 0x00, 0x46, 0xFF, 0x00, 0x75, 0x08, 0x95, 0x04, 0x81, 0x02,
-    0xC0,
-};
-
-#define ADV_NAME 0x0D, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'Y', 'A', 'G', 'C', 'C', ' ', 'G', 'u', 'i', 't', 'a', 'r'
-#define ADV_HID  0x03, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x12, 0x18, \
-                 0x03, BLUETOOTH_DATA_TYPE_APPEARANCE, 0xC4, 0x03       /* HID service, gamepad appearance */
-static const uint8_t adv_pairing[]   = { 0x02, BLUETOOTH_DATA_TYPE_FLAGS, 0x06, ADV_HID, ADV_NAME };  // discoverable
-static const uint8_t adv_reconnect[] = { 0x02, BLUETOOTH_DATA_TYPE_FLAGS, 0x04, ADV_HID, ADV_NAME };  // bonded host only
+#define PAIRING_TIMEOUT_MS 120000u       // discoverable for two minutes, like a game controller
+#define WINDOW_TIMEOUT_MS   60000u       // after a mode change: let an already paired host add the new mode
+#define MAX_REPORT 64
+#define MAX_DESC   600
+#define TAG32(A, B, C, D) (((uint32_t)(A) << 24) | ((uint32_t)(B) << 16) | ((uint32_t)(C) << 8) | (uint32_t)(D))   // as sm.c
 
 static bool s_running;                    // radio initialised
 static volatile bool s_pairing;           // discoverable and accepting a new host
+static volatile bool s_forget;            // this pairing window started by forgetting every host
 static volatile bool s_connected;         // host subscribed to input reports
-static volatile bool s_want_pair;         // pairing requested before the stack was up
+static volatile bool s_want_pair, s_want_window;
 static volatile bool s_powered;
 static uint32_t s_pair_until;
 static hci_con_handle_t s_con = HCI_CON_HANDLE_INVALID;
-static uint8_t s_report[BT_REPORT_LEN];
+static uint8_t s_report[MAX_REPORT];
+static uint16_t s_report_len;
+static uint8_t s_desc[MAX_DESC];
+static uint16_t s_desc_len;
+static char s_name[24];
+static uint16_t s_appearance;
+static uint8_t s_adv[31];
+static uint8_t s_adv_len;
 static btstack_packet_callback_registration_t s_hci_cb, s_sm_cb;
 
-static void set_adv(bool pairing) {
+// ---------------------------------------------------------------- identity of the running mode
+static const char *mode_short(uint8_t m) {
+    switch (m) {
+        case MODE_XINPUT:   return "XInput";
+        case MODE_PS3_GH:   return "PS3 GH";
+        case MODE_PS3_RB:   return "PS3 RB";
+        case MODE_HID:      return "HID";
+        case MODE_KEYBOARD: return "Keyboard";
+        case MODE_SWITCH:   return "Switch";
+        case MODE_WII_RB:   return "Wii RB";
+        case MODE_OGXBOX:   return "OG Xbox";
+        case MODE_PS4:      return "PS4";
+        case MODE_XBONE:    return "Xbox One";
+        default:            return "Guitar";
+    }
+}
+
+// HID over GATT ties the input report characteristic to report id 1. USB descriptors without report ids get
+// "Report ID 1" right after the top-level Collection (Application); the report bytes stay the same.
+static void build_descriptor(void) {
+    uint16_t n;
+    const uint8_t *d = usb_hid_report_desc(&n);
+    bool has_ids = false;
+    for (uint16_t i = 0; i < n;) {                  // walk the short items
+        uint8_t p = d[i], sz = (p & 3) == 3 ? 4 : (p & 3);
+        if ((p & 0xFC) == 0x84) has_ids = true;     // Report ID item
+        i += 1 + sz;
+    }
+    if (has_ids || n + 2 > MAX_DESC) { memcpy(s_desc, d, n < MAX_DESC ? n : MAX_DESC); s_desc_len = n; return; }
+    uint16_t o = 0; bool done = false;
+    for (uint16_t i = 0; i < n;) {
+        uint8_t p = d[i], sz = (p & 3) == 3 ? 4 : (p & 3);
+        memcpy(&s_desc[o], &d[i], 1 + sz); o += 1 + sz;
+        if (!done && p == 0xA1 && sz == 1 && d[i + 1] == 0x01) { s_desc[o++] = 0x85; s_desc[o++] = 0x01; done = true; }
+        i += 1 + sz;
+    }
+    s_desc_len = o;
+}
+
+static void build_adv(bool discoverable) {
+    uint8_t *a = s_adv; uint8_t name_len = (uint8_t)strlen(s_name);
+    *a++ = 2; *a++ = BLUETOOTH_DATA_TYPE_FLAGS; *a++ = discoverable ? 0x06 : 0x04;
+    *a++ = 3; *a++ = BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS; *a++ = 0x12; *a++ = 0x18;
+    *a++ = 3; *a++ = BLUETOOTH_DATA_TYPE_APPEARANCE; *a++ = (uint8_t)s_appearance; *a++ = (uint8_t)(s_appearance >> 8);
+    if (name_len > 31 - 11 - 2) name_len = 31 - 11 - 2;
+    *a++ = (uint8_t)(name_len + 1); *a++ = BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME;
+    memcpy(a, s_name, name_len); a += name_len;
+    s_adv_len = (uint8_t)(a - s_adv);
+}
+
+static void set_adv(bool discoverable) {
     bd_addr_t null_addr = {0};
+    build_adv(discoverable);
     gap_advertisements_enable(0);
-    // 30 ms while pairing so hosts find it quickly, 100 ms while waiting for the bonded host
-    uint16_t itv = pairing ? 0x0030 : 0x00A0;
-    gap_advertisements_set_params(itv, itv, 0 /* connectable undirected */, 0, null_addr, 0x07, 0x00);
-    gap_advertisements_set_data(pairing ? sizeof(adv_pairing) : sizeof(adv_reconnect),
-                                (uint8_t *)(pairing ? adv_pairing : adv_reconnect));
+    uint16_t itv = discoverable ? 0x0030 : 0x00A0;  // 30 ms while pairing, 100 ms waiting for a known host
+    gap_advertisements_set_params(itv, itv, 0 /* connectable undirected */, 1 /* own random address */, null_addr, 0x07, 0x00);
+    gap_advertisements_set_data(s_adv_len, s_adv);
     gap_advertisements_enable(1);
 }
 
-static void begin_pairing(void) {         // stack running, called from its context or under the lock
-    if (s_con != HCI_CON_HANDLE_INVALID) gap_disconnect(s_con);
-    for (int i = 0; i < le_device_db_max_count(); i++) le_device_db_remove(i);   // forget the old host
+static uint16_t att_read(hci_con_handle_t con, uint16_t handle, uint16_t offset, uint8_t *buf, uint16_t size) {
+    (void)con;
+    if (handle == ATT_CHARACTERISTIC_GAP_DEVICE_NAME_01_VALUE_HANDLE)
+        return att_read_callback_handle_blob((const uint8_t *)s_name, (uint16_t)strlen(s_name), offset, buf, size);
+    if (handle == ATT_CHARACTERISTIC_GAP_APPEARANCE_01_VALUE_HANDLE) {
+        uint8_t v[2] = { (uint8_t)s_appearance, (uint8_t)(s_appearance >> 8) };
+        return att_read_callback_handle_blob(v, 2, offset, buf, size);
+    }
+    return 0;
+}
+
+// ---------------------------------------------------------------- pairing
+static void open_pairing(bool forget, uint32_t ms) {   // stack running; its context or under the lock
+    if (forget) {
+        if (s_con != HCI_CON_HANDLE_INVALID) gap_disconnect(s_con);
+        for (int i = 0; i < le_device_db_max_count(); i++) le_device_db_remove(i);
+        // a new master key makes every key handed out before useless: all old hosts are forgotten
+        sm_key_t er;
+        for (int i = 0; i < 16; i += 4) { uint32_t r = get_rand_32(); memcpy(&er[i], &r, 4); }
+        const btstack_tlv_t *tlv; void *ctx;
+        btstack_tlv_get_instance(&tlv, &ctx);
+        if (tlv) tlv->store_tag(ctx, TAG32('S', 'M', 'E', 'R'), er, 16);
+        sm_set_er(er);
+    }
     s_pairing = true;
-    s_pair_until = to_ms_since_boot(get_absolute_time()) + PAIRING_TIMEOUT_MS;
-    set_adv(true);
+    s_forget = forget;
+    s_pair_until = to_ms_since_boot(get_absolute_time()) + ms;
+    if (s_con == HCI_CON_HANDLE_INVALID) set_adv(true);
     rgb_set_bt(RGB_BT_PAIRING);
 }
 
@@ -88,22 +167,20 @@ static void packet_handler(uint8_t type, uint16_t channel, uint8_t *packet, uint
         case BTSTACK_EVENT_STATE:
             if (btstack_event_state_get_state(packet) != HCI_STATE_WORKING) break;
             s_powered = true;
-            if (s_want_pair) { s_want_pair = false; begin_pairing(); }
+            if (s_want_pair) { s_want_pair = false; open_pairing(true, PAIRING_TIMEOUT_MS); }
+            else if (s_want_window) { s_want_window = false; open_pairing(false, WINDOW_TIMEOUT_MS); }
             else set_adv(false);
             break;
         case HCI_EVENT_DISCONNECTION_COMPLETE:
             s_con = HCI_CON_HANDLE_INVALID;
             s_connected = false;
+            set_adv(s_pairing);
             rgb_set_bt(s_pairing ? RGB_BT_PAIRING : RGB_BT_OFF);
-            break;                        // the stack resumes advertising by itself
+            break;
         case SM_EVENT_JUST_WORKS_REQUEST:
-            // only a host we are pairing with may bond; outside pairing mode just the stored host gets in
+            // a new host may only bond inside a pairing window; otherwise only known hosts reconnect
             if (s_pairing) sm_just_works_confirm(sm_event_just_works_request_get_handle(packet));
             else sm_bonding_decline(sm_event_just_works_request_get_handle(packet));
-            break;
-        case SM_EVENT_NUMERIC_COMPARISON_REQUEST:
-            if (s_pairing) sm_numeric_comparison_confirm(sm_event_numeric_comparison_request_get_handle(packet));
-            else sm_bonding_decline(sm_event_numeric_comparison_request_get_handle(packet));
             break;
         case SM_EVENT_PAIRING_COMPLETE:
             if (sm_event_pairing_complete_get_status(packet) == ERROR_CODE_SUCCESS) s_pairing = false;
@@ -116,11 +193,12 @@ static void packet_handler(uint8_t type, uint16_t channel, uint8_t *packet, uint
                     if (s_connected) {
                         s_pairing = false;
                         rgb_set_bt(RGB_BT_CONNECTED);
-                        hids_device_request_can_send_now_event(s_con);
+                        if (s_report_len) hids_device_request_can_send_now_event(s_con);
                     }
                     break;
                 case HIDS_SUBEVENT_CAN_SEND_NOW:
-                    if (s_con != HCI_CON_HANDLE_INVALID) hids_device_send_input_report(s_con, s_report, BT_REPORT_LEN);
+                    if (s_con != HCI_CON_HANDLE_INVALID && s_report_len)
+                        hids_device_send_input_report(s_con, s_report, s_report_len);
                     break;
                 default: break;
             }
@@ -129,25 +207,42 @@ static void packet_handler(uint8_t type, uint16_t channel, uint8_t *packet, uint
     }
 }
 
+// ---------------------------------------------------------------- API
 bool bt_supported(void) { return true; }
 bool bt_running(void) { return s_running; }
 
-void bt_init(bool enabled, bool pair) {
+void bt_init(bool enabled, bool pair, bool open_window) {
     if (s_running || (!enabled && !pair)) return;   // radio stays off: no power, no PIO or DMA used
     if (cyw43_arch_init()) return;
     s_running = true;
     s_want_pair = pair;
-    s_report[2] = 0x08; s_report[3] = s_report[4] = 0x80;   // hat and sticks centred
+    s_want_window = open_window && !pair;
+
+    // identity of the running mode
+    snprintf(s_name, sizeof(s_name), "YAGCC %s", mode_short(g_usb_mode));
+    s_appearance = g_usb_mode == MODE_KEYBOARD ? 0x03C1 : 0x03C4;   // HID keyboard / HID gamepad
+    build_descriptor();
+    uint16_t vid, pid, ver;
+    usb_mode_ids(&vid, &pid, &ver);
+    pico_unique_board_id_t uid;
+    pico_get_unique_board_id(&uid);
+    bd_addr_t addr;                                  // static random address, different for every mode
+    for (int i = 0; i < 6; i++) addr[i] = uid.id[2 + i];
+    addr[5] ^= (uint8_t)(g_usb_mode * 0x2B + 1);
+    addr[0] |= 0xC0;                                 // static random: top two bits set
 
     l2cap_init();
     sm_init();
     sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
-    sm_set_authentication_requirements(SM_AUTHREQ_SECURE_CONNECTION | SM_AUTHREQ_BONDING);
-    att_server_init(profile_data, NULL, NULL);
+    sm_set_authentication_requirements(SM_AUTHREQ_BONDING);   // legacy pairing: keys derive from ER (see top)
+    att_server_init(profile_data, att_read, NULL);
     device_information_service_server_init();
     device_information_service_server_set_manufacturer_name("YAGCC");
-    device_information_service_server_set_model_number("Guitar controller");
-    hids_device_init(0, ble_hid_desc, sizeof(ble_hid_desc));
+    device_information_service_server_set_model_number(s_name);
+    device_information_service_server_set_pnp_id(0x02 /* USB-IF ids */, vid, pid, ver);
+    hids_device_init(0, s_desc, s_desc_len);
+    gap_random_address_set_mode(GAP_RANDOM_ADDRESS_TYPE_STATIC);
+    gap_random_address_set(addr);
 
     s_hci_cb.callback = &packet_handler;
     hci_add_event_handler(&s_hci_cb);
@@ -155,14 +250,14 @@ void bt_init(bool enabled, bool pair) {
     sm_add_event_handler(&s_sm_cb);
     hids_device_register_packet_handler(packet_handler);
     hci_power_control(HCI_POWER_ON);
-    if (pair) rgb_set_bt(RGB_BT_PAIRING);
+    if (pair || open_window) rgb_set_bt(RGB_BT_PAIRING);
 }
 
 void bt_start_pairing(void) {
-    if (!s_running) { bt_init(true, true); return; }
+    if (!s_running) { bt_init(true, true, false); return; }
     async_context_t *ctx = cyw43_arch_async_context();
     async_context_acquire_lock_blocking(ctx);
-    if (s_powered) begin_pairing(); else s_want_pair = true;
+    if (s_powered) open_pairing(true, PAIRING_TIMEOUT_MS); else s_want_pair = true;
     async_context_release_lock(ctx);
 }
 
@@ -183,10 +278,11 @@ uint8_t bt_state(void) {
 
 void bt_send_report(const uint8_t *r, uint16_t len) {
     if (!s_running) return;
-    if (len > BT_REPORT_LEN) len = BT_REPORT_LEN;
+    if (len > MAX_REPORT) len = MAX_REPORT;
     async_context_t *ctx = cyw43_arch_async_context();
     async_context_acquire_lock_blocking(ctx);
     memcpy(s_report, r, len);
+    s_report_len = len;
     if (s_connected && s_con != HCI_CON_HANDLE_INVALID) hids_device_request_can_send_now_event(s_con);
     async_context_release_lock(ctx);
 }

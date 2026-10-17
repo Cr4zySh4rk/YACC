@@ -15,7 +15,7 @@
 #define MAX_NR_L2CAP_SERVICES 2
 #define MAX_NR_SM_LOOKUP_ENTRIES 3
 #define MAX_NR_WHITELIST_ENTRIES 1
-#define MAX_NR_LE_DEVICE_DB_ENTRIES 4
+#define MAX_NR_LE_DEVICE_DB_ENTRIES 16
 
 // avoid overrunning the CYW43 shared bus
 #define MAX_NR_CONTROLLER_ACL_BUFFERS 3
@@ -27,7 +27,7 @@
 #define HCI_HOST_SCO_PACKET_NUM 3
 
 // bonds live in flash (TLV), two sectors just below the YAGCC config sector (see CMakeLists.txt)
-#define NVM_NUM_DEVICE_DB_ENTRIES 4
+#define NVM_NUM_DEVICE_DB_ENTRIES 16
 
 #define MAX_ATT_DB_SIZE 512
 #define HAVE_EMBEDDED_TIME_MS

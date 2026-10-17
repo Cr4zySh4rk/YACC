@@ -62,4 +62,8 @@ bool usb_vendor_request(uint8_t rhport, uint8_t stage, tusb_control_request_t co
 bool xinput_vendor_request(uint8_t rhport, uint8_t stage, tusb_control_request_t const *req);
 const uint8_t *yacc_webusb_url_desc(uint16_t *len);
 const uint8_t *yacc_ms_os_desc(uint16_t *len);
+// The running mode's HID report descriptor (the generic gamepad for the XInput / Xbox modes) and USB ids,
+// so Bluetooth can present the same device
+const uint8_t *usb_hid_report_desc(uint16_t *len);
+void usb_mode_ids(uint16_t *vid, uint16_t *pid, uint16_t *version);
 #endif

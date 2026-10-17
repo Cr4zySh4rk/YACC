@@ -27,6 +27,7 @@ static volatile bool setup_reboot;
 
 // Asked over HID (PS3 mode has no WebUSB interface): restart once in setup mode (XInput + web config)
 #define SETUP_MAGIC 0x59414743u   // "YAGC"
+#define MODESWITCH_MAGIC 0x594D4F44u   // "YMOD": rebooted by a Bluetooth mode change, skip the plug-in shortcuts
 void usb_request_setup_reboot(void) {
     setup_reboot = true;
     reboot_at = time_us_64() + 150000;
@@ -48,7 +49,8 @@ static uint16_t build_status(void) {
 }
 
 static bool g_setup_session;
-static bool g_bt_pair_at_boot;   // Star power held at power-on: pair a new Bluetooth host   // this boot is a one-off setup session (XInput + web config), not the saved mode
+static bool g_bt_pair_at_boot;
+static bool g_bt_mode_switched;   // this boot follows a Star + fret mode change over Bluetooth   // Star power held at power-on: pair a new Bluetooth host   // this boot is a one-off setup session (XInput + web config), not the saved mode
 
 static uint16_t build_info(void) {
     uint8_t *p = tx_buf;
@@ -422,6 +424,11 @@ static uint8_t pick_mode(void) {
         g_setup_session = true;
         return MODE_XINPUT;
     }
+    if (watchdog_caused_reboot() && watchdog_hw->scratch[0] == MODESWITCH_MAGIC) {
+        watchdog_hw->scratch[0] = 0;          // frets may still be held from the shortcut: use the saved mode
+        g_bt_mode_switched = true;
+        return g_cfg.usb_mode < NUM_MODES ? g_cfg.usb_mode : MODE_XINPUT;
+    }
     watchdog_hw->scratch[0] = 0;
     // star power + plus at plug-in -> straight to the UF2 bootloader
     if (boot_pressed(F_STAR) && boot_pressed(F_PLUS)) {
@@ -457,12 +464,12 @@ int main(void) {
 
     rgb_init();                       // first, so the LED state machine is claimed before the radio picks one
     // Bluetooth stays off in the modes that use the USB host port (both need PIO1 / DMA) and on boards without a radio
-    bool bt_ok = bt_supported() && !needs_host(g_usb_mode);
+    bool bt_ok = bt_supported() && !(needs_host(g_usb_mode) && g_cfg.host_dp_pin != PIN_NONE);
     if (bt_ok && g_bt_pair_at_boot && !(g_cfg.flags & CFG_FLAG_BT_ENABLED)) {
         g_cfg.flags |= CFG_FLAG_BT_ENABLED;   // pairing turns Bluetooth on for good
         config_save();
     }
-    if (bt_ok) bt_init(g_cfg.flags & CFG_FLAG_BT_ENABLED, g_bt_pair_at_boot);
+    if (bt_ok) bt_init(g_cfg.flags & CFG_FLAG_BT_ENABLED, g_bt_pair_at_boot, g_bt_mode_switched);
     if (g_usb_mode == MODE_XBONE) xbone_init();
     tusb_init();
     if (needs_host(g_usb_mode) && g_cfg.host_dp_pin != PIN_NONE) usb_host_start(g_cfg.host_dp_pin);
@@ -472,7 +479,8 @@ int main(void) {
 #endif
     uint64_t host_lost_at = 0;
 
-    uint64_t last_sent = 0, hold_start = 0;
+    uint64_t last_sent = 0, hold_start = 0, switch_start = 0;
+    int switch_fret = -1;
     bool hold_fired = false;
     uint8_t last_report[64] = {0};
     uint8_t ps4_counter = 0;
@@ -516,7 +524,7 @@ int main(void) {
         }
 
         // Hold star power + plus for 5 s -> Bluetooth pairing mode
-        if (bt_supported() && !needs_host(g_usb_mode) && input_func(F_STAR) && input_func(F_PLUS)) {
+        if (bt_ok && input_func(F_STAR) && input_func(F_PLUS)) {
             if (!hold_start) hold_start = now;
             else if (!hold_fired && now - hold_start >= 5000000) {
                 hold_fired = true;
@@ -528,8 +536,57 @@ int main(void) {
             hold_fired = false;
         }
 
+        // Bluetooth: Star power + a fret for 3 s switches to the mode that fret selects at plug-in (the same
+        // shortcuts as on the Modes tab). The guitar saves it and restarts itself straight into that mode.
+        if (bt_ok && bt_running() && !tud_mounted() && input_func(F_STAR) && !input_func(F_PLUS)) {
+            int held = -1;
+            for (int f = 0; f < NUM_FRETS; f++) if (input_func(f)) { held = f; break; }
+            uint8_t target = held >= 0 ? g_cfg.boot_modes[held] : MODE_NONE;
+            bool usable = target < NUM_MODES && target != g_usb_mode && !(needs_host(target) && g_cfg.host_dp_pin != PIN_NONE);
+            if (!usable) { switch_start = 0; switch_fret = -1; }
+            else if (held != switch_fret) { switch_fret = held; switch_start = now; }
+            else if (now - switch_start >= 3000000) {
+                g_cfg.usb_mode = target;
+                config_save();
+                watchdog_hw->scratch[0] = MODESWITCH_MAGIC;
+                watchdog_reboot(0, 0, 20);
+                while (true) tight_loop_contents();
+            }
+        } else { switch_start = 0; switch_fret = -1; }
+
         pad_t st;
         read_pad(&st);
+        // Bluetooth carries the same HID report as USB in this mode, whenever no USB host is using the guitar
+        // (USB wins when both are there). XInput, OG Xbox and Xbox One aren't HID: they use the generic gamepad.
+        if (bt_running()) {
+            static uint8_t bt_last[64];
+            static uint16_t bt_len;
+            static bool bt_was_usb = true;
+            static uint8_t bt_counter;
+            uint8_t b[64];
+            uint16_t n;
+            switch (g_usb_mode) {
+                case MODE_PS3_GH:   n = build_ps3(&st, b); break;
+                case MODE_PS3_RB:
+                case MODE_WII_RB:   n = build_ps3_rb(&st, b); break;
+                case MODE_KEYBOARD: n = build_keyboard(&st, b); break;
+                case MODE_SWITCH:   n = build_switch(&st, b); break;
+                case MODE_HID:      n = build_hid(&st, b); break;
+                case MODE_PS4:      n = build_ps4(&st, b); break;
+                default:            n = build_hid(&st, b); break;
+            }
+            const uint8_t *p = b;
+            if (g_usb_mode == MODE_PS4) { p = &b[1]; n--; }      // report id travels separately over Bluetooth
+            bool usb = tud_mounted();
+            if (!usb && (bt_was_usb || n != bt_len || memcmp(p, bt_last, n) != 0)) {
+                memcpy(bt_last, p, n); bt_len = n;
+                if (g_usb_mode == MODE_PS4) {                   // 6 bit counter, like over USB
+                    uint8_t c[64]; memcpy(c, p, n); c[6] = (uint8_t)(bt_counter << 2); bt_counter = (bt_counter + 1) & 0x3F;
+                    bt_send_report(c, n);
+                } else bt_send_report(p, n);
+            }
+            bt_was_usb = usb;
+        }
         if (g_usb_mode == MODE_XBONE) {                 // GIP has its own sequencing, acks and auth gate
             uint8_t body[XBONE_GUITAR_PAYLOAD_LEN];
             build_xbone(&st, body);
@@ -554,17 +611,6 @@ int main(void) {
             memcpy(last_report, rpt, len);
             last_len = len;
         }
-        // Bluetooth gets the HID gamepad report whenever no USB host is using the guitar (USB wins when both are there)
-        if (bt_running()) {
-            static uint8_t bt_last[HID_REPORT_LEN];
-            static bool bt_was_usb = true;
-            uint8_t h[HID_REPORT_LEN];
-            build_hid(&st, h);
-            bool usb = tud_mounted();
-            if (!usb && (bt_was_usb || memcmp(h, bt_last, sizeof(h)) != 0)) { bt_send_report(h, sizeof(h)); memcpy(bt_last, h, sizeof(h)); }
-            bt_was_usb = usb;
-        }
-
         if ((dirty || now - last_sent >= 8000) && tud_ready()) {
             bool ok;
             if (g_usb_mode == MODE_XINPUT || g_usb_mode == MODE_OGXBOX) {

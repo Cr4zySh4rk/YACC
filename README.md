@@ -118,11 +118,12 @@ The only knob is the lockout time (presets from Off to 20 ms, or a slider up to 
 
 The **Hardware** page in the web app describes each board, the LED types, whammy pots, tilt sensors and wiring, and warns about fake "Pico W" boards. Arduino (ATmega32U4 / 328P) and other microcontrollers are not supported: YAGCC is RP2040/RP2350 only.
 
-**Bluetooth (experimental, untested on hardware)** needs the CYW43 radio of a genuine Pico W / Pico 2 W; the ESP8285 on clone boards is Wi-Fi only, so the toggle is disabled there. The guitar is a Bluetooth LE gamepad (HID over GATT, BTstack) named **YAGCC Guitar**, with the same buttons and axes as USB HID mode, so it works with Windows, macOS, Android and iOS gamepad support, Clone Hero and YARG.
+**Bluetooth (experimental, untested on hardware)** needs the CYW43 radio of a genuine Pico W / Pico 2 W; the ESP8285 on clone boards is Wi-Fi only, so the toggle is disabled there. Over Bluetooth LE (HID over GATT, BTstack) the guitar presents **the same device as over USB in the running mode**: the same HID report descriptor, the same report bytes and the same vendor / product ids (PS3 Guitar Hero, PS3 / Wii Rock Band, Switch, keyboard, HID gamepad, PS4). XInput, original Xbox and Xbox One aren't HID devices over USB, so over Bluetooth they use the generic gamepad. Each mode is its own Bluetooth device ("YAGCC PS3 GH", "YAGCC Switch", …) with its own address, so a host never mixes up two modes' layouts. Whether a console accepts it is up to the console: most only take their own wireless controllers.
 
 * **Pair a new device** (like PS + Create on a PlayStation controller): hold **Star power** while plugging in or switching on. The guitar forgets its previous host, turns Bluetooth on, becomes discoverable for two minutes and the frets double-blink blue. Holding **Star power + Plus** for 5 s while it is running does the same. When a host connects, all frets light blue for a second.
-* Otherwise it only lets the host it is paired with reconnect, and it doesn't advertise as discoverable.
-* Bluetooth reports are sent only while no USB host is using the guitar; plugged into a PC or console, USB wins. It stays off in the PS4 / Xbox One modes, which need the same hardware for the USB host port.
+* **Switch modes over Bluetooth**: hold **Star power + a fret for 3 s** to switch to the mode that fret selects at plug-in (the shortcuts on the Modes tab). The guitar saves the mode and restarts into it within a second or two, then stays discoverable for a minute so an already paired host can add that mode (pair each mode once; after that it reconnects by itself).
+* Otherwise it only lets hosts it is paired with reconnect, and it doesn't advertise as discoverable.
+* Bluetooth reports are sent only while no USB host is using the guitar; plugged into a PC or console, USB wins. It stays off in the PS4 / Xbox One modes only when the USB host port is set up, since both need the same hardware.
 * Pairings are stored in the two flash sectors below the settings sector.
 
 ## Scope and roadmap
