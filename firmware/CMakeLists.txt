@@ -16,7 +16,7 @@ set(PICO_PIO_USB_PATH ${CMAKE_CURRENT_LIST_DIR}/lib/pico_pio_usb)
 pico_sdk_init()
 
 set(YACC_VERSION_MAJOR 0)
-set(YACC_VERSION_MINOR 8)
+set(YACC_VERSION_MINOR 9)
 
 # Board ids reported to the web app
 if(PICO_BOARD STREQUAL "pico")
@@ -72,6 +72,9 @@ target_compile_definitions(yacc PRIVATE
   YACC_VERSION_MAJOR=${YACC_VERSION_MAJOR}
   YACC_VERSION_MINOR=${YACC_VERSION_MINOR}
   YACC_BOARD_ID=${YACC_BOARD_ID}
+  # Core 1 never runs, so saving to flash only has to mask interrupts on core 0. Without this, linking
+  # pico_multicore (pulled in by the USB host and radio libraries) makes flash_safe_execute() refuse to run.
+  PICO_FLASH_ASSUME_CORE1_SAFE=1
 )
 
 target_link_libraries(yacc
